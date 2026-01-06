@@ -40,7 +40,17 @@ module Admin
 
     # Platform 수정
     def update
-      if @lti_platform.update(lti_platform_params)
+      params_hash = lti_platform_params
+      # Client Secret이 비어있으면 기존 값 유지
+      if params_hash[:client_secret].blank?
+        params_hash.delete(:client_secret)
+      end
+      # Canvas API Token이 비어있으면 기존 값 유지
+      if params_hash[:canvas_api_token].blank?
+        params_hash.delete(:canvas_api_token)
+      end
+      
+      if @lti_platform.update(params_hash)
         # 캐시 무효화
         Lti::PlatformConfig.clear_cache(@lti_platform.iss)
         
@@ -68,7 +78,7 @@ module Admin
     end
 
     def lti_platform_params
-      params.require(:lti_platform).permit(:iss, :client_id, :canvas_url, :name, :active)
+      params.require(:lti_platform).permit(:iss, :client_id, :client_secret, :canvas_api_token, :canvas_url, :name, :active)
     end
   end
 end

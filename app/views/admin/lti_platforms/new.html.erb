@@ -37,6 +37,25 @@
     </div>
 
     <div class="form-group">
+      <%= form.label :client_secret, "Client Secret" %>
+      <%= form.password_field :client_secret, class: "form-control", placeholder: "Canvas Developer Key의 Client Secret", required: true %>
+      <small class="form-text text-muted">
+        <strong>필수:</strong> Canvas Developer Key에서 발급받은 Client Secret입니다.<br>
+        LTI Launch 인증에 사용됩니다. (민감 정보이므로 암호화 저장됩니다)
+      </small>
+    </div>
+
+    <div class="form-group">
+      <%= form.label :canvas_api_token, "Canvas API Token (Personal Access Token)" %>
+      <%= form.password_field :canvas_api_token, class: "form-control", placeholder: "Canvas Personal Access Token", required: true %>
+      <small class="form-text text-muted">
+        <strong>필수:</strong> Canvas에서 발급받은 Personal Access Token입니다.<br>
+        Canvas API 호출을 위해 필요합니다. (민감 정보이므로 암호화 저장됩니다)<br>
+        <strong>발급 방법:</strong> Canvas > Account > Settings > New Access Token
+      </small>
+    </div>
+
+    <div class="form-group">
       <%= form.label :name, "이름 (선택사항)" %>
       <%= form.text_field :name, class: "form-control", placeholder: "Canvas Production" %>
       <small class="form-text text-muted">Platform을 구분하기 위한 이름입니다.</small>

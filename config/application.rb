@@ -29,5 +29,9 @@ module Lti13Example
     # Skip views, helpers and assets when generating a new resource.
     # Note: api_only is false to support LTI Launch view rendering
     config.api_only = false
+    
+    # X-Frame-Options 제거 (Canvas iframe에서 LTI Tool 표시 가능하도록)
+    # Canvas는 iframe으로 LTI Tool을 로드하므로 필요
+    config.action_dispatch.default_headers.delete("X-Frame-Options")
   end
 end

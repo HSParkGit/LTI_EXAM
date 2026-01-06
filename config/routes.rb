@@ -13,11 +13,16 @@ Rails.application.routes.draw do
     post "launch", to: "launch#handle"
   end
 
+  # Projects Routes
+  resources :projects, only: [:index, :show, :new, :create, :edit, :update, :destroy]
+
   # Admin Routes (LTI Platform 관리)
   namespace :admin do
     resources :lti_platforms
   end
 
   # Defines the root path route ("/")
+  # 루트는 Admin 페이지 (LTI Platform 관리)
+  # Projects는 LTI Launch 후에만 접근 가능
   root "admin/lti_platforms#index"
 end

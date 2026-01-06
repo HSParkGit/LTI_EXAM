@@ -71,14 +71,52 @@ module Lti
       # LTI Claims 추출
       @lti_claims = extract_lti_claims(payload)
       
-      # 기존 변수들 (하위 호환성 유지)
-      @course_id = @lti_claims[:course_id]
-      @user_role = @lti_claims[:user_role]
-      @user_sub = @lti_claims[:user_sub]
-      @context_title = @lti_claims[:context_title]
-      @user_name = @lti_claims[:user_name]
+      # LtiContext 생성 또는 조회
+      issuer = @lti_claims[:issuer] || @lti_claims["issuer"] || @lti_claims[:iss] || @lti_claims["iss"]
+      lti_platform = LtiPlatform.find_by(iss: issuer)
+      unless lti_platform
+        Rails.logger.error "LTI Platform을 찾을 수 없습니다: #{issuer}"
+        render json: { error: "LTI Platform을 찾을 수 없습니다" }, status: :bad_request
+        return
+      end
       
-      render :handle
+      lti_context = LtiContext.find_or_create_by(
+        context_id: @lti_claims[:course_id] || @lti_claims["course_id"],
+        platform_iss: issuer
+      ) do |context|
+        context.context_type = @lti_claims[:context_type] || @lti_claims["context_type"] || 'Course'
+        context.context_title = @lti_claims[:context_title] || @lti_claims["context_title"]
+        context.canvas_url = lti_platform.actual_canvas_url
+        context.deployment_id = @lti_claims[:deployment_id] || @lti_claims["deployment_id"]
+      end
+      
+      # Canvas 실제 Course ID 저장/업데이트 (Custom Parameters 또는 Canvas 클레임에서)
+      # 항상 업데이트하여 최신 값 유지
+      canvas_course_id = @lti_claims[:canvas_course_id] || @lti_claims["canvas_course_id"]
+      if canvas_course_id.present?
+        canvas_course_id_int = canvas_course_id.to_i
+        # 값이 변경되었거나 nil인 경우 업데이트
+        if lti_context.canvas_course_id != canvas_course_id_int
+          lti_context.update(canvas_course_id: canvas_course_id_int)
+          Rails.logger.info "LtiContext canvas_course_id 업데이트: #{lti_context.id} -> #{canvas_course_id_int}"
+        end
+      end
+      
+      # 세션에 LTI Claims 저장
+      session[:lti_claims] = @lti_claims
+      session[:lti_claims_expires_at] = 1.hour.from_now
+      session[:lti_context_id] = lti_context.id
+      
+      # 디버깅: 세션 저장 확인
+      Rails.logger.info "=== LTI Launch 성공 ==="
+      Rails.logger.info "Session ID: #{session.id}"
+      Rails.logger.info "LTI Claims 저장됨: #{session[:lti_claims].present?}"
+      Rails.logger.info "LtiContext ID: #{lti_context.id}"
+      Rails.logger.info "======================"
+      
+      # Rails 세션은 자동으로 저장되므로 별도 save 호출 불필요
+      # Projects 목록으로 리다이렉트
+      redirect_to projects_path
     end
 
     private
@@ -132,6 +170,19 @@ module Lti
       # Target Link URI
       target_link_uri = payload["https://purl.imsglobal.org/spec/lti/claim/target_link_uri"]
       
+      # Custom Parameters (Canvas Developer Key에서 설정한 커스텀 필드)
+      # 예: course_id=$Canvas.course.id, user_id=$Canvas.user.id
+      custom_params = payload["https://purl.imsglobal.org/spec/lti/claim/custom"] || {}
+      
+      # Canvas 특정 클레임 (있을 수도, 없을 수도 있음)
+      canvas_user_id_claim = payload["https://canvas.instructure.com/lti/user_id"]
+      canvas_course_id_claim = payload["https://canvas.instructure.com/lti/course_id"]
+      
+      # Custom Parameters에서 추출 (우선순위 높음)
+      # Canvas Developer Key의 Custom Fields에서 설정한 값
+      custom_course_id = custom_params["course_id"] || custom_params[:course_id]
+      custom_user_id = custom_params["user_id"] || custom_params[:user_id]
+      
       {
         # Context (코스) 정보
         course_id: context["id"],
@@ -168,11 +219,15 @@ module Lti
         issued_at: payload["iat"] ? Time.at(payload["iat"]) : nil, # 발급 시간
         expiration: payload["exp"] ? Time.at(payload["exp"]) : nil, # 만료 시간
         
-        # 추가 정보 (Canvas 특정 - 있을 수도, 없을 수도 있음)
-        canvas_user_id: payload["https://canvas.instructure.com/lti/user_id"], # Canvas 내부 사용자 ID
-        canvas_course_id: payload["https://canvas.instructure.com/lti/course_id"], # Canvas 내부 코스 ID
+        # Canvas 내부 ID (우선순위: Custom Parameters > Canvas 특정 클레임)
+        # Custom Parameters는 Canvas Developer Key에서 설정 가능
+        canvas_user_id: custom_user_id || canvas_user_id_claim, # Canvas 내부 사용자 ID
+        canvas_course_id: custom_course_id || canvas_course_id_claim, # Canvas 내부 코스 ID
         canvas_account_id: payload["https://canvas.instructure.com/lti/account_id"], # Canvas 계정 ID
         canvas_workflow_state: payload["https://canvas.instructure.com/lti/workflow_state"], # 코스 상태 (active 등)
+        
+        # Custom Parameters 전체 (디버깅 및 확장용)
+        custom_params: custom_params
       }
     end
 

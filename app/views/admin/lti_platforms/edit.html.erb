@@ -37,6 +37,27 @@
     </div>
 
     <div class="form-group">
+      <%= form.label :client_secret, "Client Secret" %>
+      <%= form.password_field :client_secret, class: "form-control", placeholder: @lti_platform.client_secret.present? ? "●●●●●●●● (기존 값 유지)" : "새 Client Secret 입력", value: "" %>
+      <small class="form-text text-muted">
+        Canvas Developer Key에서 발급받은 Client Secret입니다.<br>
+        기존 값이 있으면 비워두면 기존 값이 유지됩니다. 새로 입력하면 업데이트됩니다.<br>
+        (민감 정보이므로 암호화 저장됩니다)
+      </small>
+    </div>
+
+    <div class="form-group">
+      <%= form.label :canvas_api_token, "Canvas API Token (Personal Access Token)" %>
+      <%= form.password_field :canvas_api_token, class: "form-control", placeholder: @lti_platform.canvas_api_token.present? ? "●●●●●●●● (기존 값 유지)" : "새 Canvas API Token 입력", value: "" %>
+      <small class="form-text text-muted">
+        Canvas에서 발급받은 Personal Access Token입니다.<br>
+        기존 값이 있으면 비워두면 기존 값이 유지됩니다. 새로 입력하면 업데이트됩니다.<br>
+        <strong>발급 방법:</strong> Canvas > Account > Settings > New Access Token<br>
+        (민감 정보이므로 암호화 저장됩니다)
+      </small>
+    </div>
+
+    <div class="form-group">
       <%= form.label :name, "이름 (선택사항)" %>
       <%= form.text_field :name, class: "form-control" %>
     </div>

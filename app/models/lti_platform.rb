@@ -13,6 +13,13 @@ class LtiPlatform < ApplicationRecord
   validates :client_id, presence: true
   validates :name, length: { maximum: 255 }, allow_nil: true
   validates :canvas_url, format: { with: /\Ahttps?:\/\/.+\z/, message: "must be a valid URL" }, allow_nil: true
+  validates :client_secret, presence: true, if: -> { active? }
+  validates :canvas_api_token, presence: true, if: -> { active? }
+  
+  # Client Secret 암호화 저장 (Rails 7.1+)
+  # Active Record Encryption을 사용하여 민감 정보 암호화
+  encrypts :client_secret if respond_to?(:encrypts)
+  encrypts :canvas_api_token if respond_to?(:encrypts)
   
   # 활성화된 Platform만 조회
   scope :active, -> { where(active: true) }

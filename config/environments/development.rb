@@ -74,4 +74,9 @@ Rails.application.configure do
   config.hosts << /.*\.ngrok-free\.app/
   config.hosts << /.*\.ngrok-free\.dev/
   config.hosts << /.*\.ngrok\.io/
+  
+  # ngrok을 통한 HTTPS 접근 시 Secure 쿠키 필요
+  # SameSite=None을 사용하려면 Secure가 true여야 함
+  config.force_ssl = false # 개발 환경에서는 false
+  config.action_dispatch.cookies_same_site_protection = :none
 end
