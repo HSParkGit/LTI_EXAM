@@ -12,7 +12,7 @@ module Lti
   # Canvas 설정 정보:
   #   - Redirect URI: https://your-tool.com/lti/login
   #   - Initiation Login URL: https://your-tool.com/lti/login
-  class LoginController < ApplicationController
+  class LoginController < BaseController
     # Canvas OIDC Login Initiation 요청 처리
     def initiate
       # Canvas에서 전달된 파라미터
@@ -57,11 +57,10 @@ module Lti
     # Canvas Authorization Endpoint URL 생성
     # Canvas 설정:
     #   - Client ID: Canvas Developer Key에서 발급받은 값 (예: 10000000000001)
-    #   - 이 값은 환경변수 LTI_CLIENT_ID로 관리
+    #   - 여러 Canvas 인스턴스 지원: 환경변수 LTI_PLATFORMS로 iss → client_id 매핑
+    #   - 단일 Canvas: 환경변수 LTI_CLIENT_ID 사용 (하위 호환)
     def build_authorization_url(issuer:, login_hint:, target_link_uri:, state:, nonce:)
-      client_id = ENV.fetch("LTI_CLIENT_ID") do
-        raise "LTI_CLIENT_ID environment variable is required"
-      end
+      client_id = Lti::PlatformConfig.client_id_for(issuer)
       
       # Canvas Authorization Endpoint
       # 형식: {issuer}/api/lti/authorize_redirect

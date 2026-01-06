@@ -1,0 +1,48 @@
+<div class="container">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+    <h1>LTI Platform 관리</h1>
+    <%= link_to "새 Platform 등록", new_admin_lti_platform_path, class: "btn btn-primary" %>
+  </div>
+
+  <% if @lti_platforms.any? %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ISS (Canvas URL)</th>
+          <th>Client ID</th>
+          <th>이름</th>
+          <th>상태</th>
+          <th>등록일</th>
+          <th>작업</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @lti_platforms.each do |platform| %>
+          <tr>
+            <td><code><%= platform.iss %></code></td>
+            <td><code><%= platform.client_id %></code></td>
+            <td><%= platform.name || "-" %></td>
+            <td>
+              <% if platform.active? %>
+                <span class="badge badge-success">활성</span>
+              <% else %>
+                <span class="badge badge-secondary">비활성</span>
+              <% end %>
+            </td>
+            <td><%= platform.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+            <td>
+              <%= link_to "수정", edit_admin_lti_platform_path(platform), class: "btn btn-sm btn-outline-primary" %>
+              <%= link_to "삭제", admin_lti_platform_path(platform), method: :delete, 
+                  data: { confirm: "정말 삭제하시겠습니까?" }, 
+                  class: "btn btn-sm btn-outline-danger" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <div class="alert alert-info">
+      등록된 Canvas Platform이 없습니다. <%= link_to "새 Platform을 등록", new_admin_lti_platform_path %>하세요.
+    </div>
+  <% end %>
+</div>

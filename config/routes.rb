@@ -13,6 +13,11 @@ Rails.application.routes.draw do
     post "launch", to: "launch#handle"
   end
 
+  # Admin Routes (LTI Platform 관리)
+  namespace :admin do
+    resources :lti_platforms
+  end
+
   # Defines the root path route ("/")
-  # root "posts#index"
+  root "admin/lti_platforms#index"
 end

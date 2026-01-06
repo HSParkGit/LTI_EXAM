@@ -1,0 +1,45 @@
+<div class="container">
+  <h1>Canvas Platform 수정</h1>
+
+  <%= form_with model: [:admin, @lti_platform], local: true do |form| %>
+    <% if @lti_platform.errors.any? %>
+      <div class="alert alert-danger">
+        <h4>다음 오류가 발생했습니다:</h4>
+        <ul>
+          <% @lti_platform.errors.full_messages.each do |message| %>
+            <li><%= message %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <div class="form-group">
+      <%= form.label :iss, "Canvas Instance URL (ISS)" %>
+      <%= form.text_field :iss, class: "form-control", required: true %>
+      <small class="form-text text-muted">Canvas 인스턴스의 전체 URL입니다.</small>
+    </div>
+
+    <div class="form-group">
+      <%= form.label :client_id, "Client ID" %>
+      <%= form.text_field :client_id, class: "form-control", required: true %>
+      <small class="form-text text-muted">Canvas Developer Key에서 발급받은 Client ID입니다.</small>
+    </div>
+
+    <div class="form-group">
+      <%= form.label :name, "이름 (선택사항)" %>
+      <%= form.text_field :name, class: "form-control" %>
+    </div>
+
+    <div class="form-group">
+      <div class="form-check">
+        <%= form.check_box :active, class: "form-check-input" %>
+        <%= form.label :active, "활성화", class: "form-check-label" %>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <%= form.submit "수정", class: "btn btn-primary" %>
+      <%= link_to "취소", admin_lti_platforms_path, class: "btn btn-secondary" %>
+    </div>
+  <% end %>
+</div>

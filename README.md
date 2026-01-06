@@ -35,25 +35,53 @@ redis-server
 docker run -d -p 6379:6379 redis:alpine
 ```
 
-### 3. 환경 변수 설정
-
-`.env` 파일 생성 (또는 환경 변수 설정):
+### 3. 데이터베이스 마이그레이션
 
 ```bash
-# Canvas Developer Key에서 발급받은 Client ID
-LTI_CLIENT_ID=10000000000001
-
-# Redis URL
-REDIS_URL=redis://localhost:6379/0
+mise exec -- rails db:migrate
 ```
 
-### 4. 서버 실행
+### 4. Canvas Platform 등록
+
+데이터베이스에 Canvas 인스턴스를 등록합니다:
+
+**Rails Console에서:**
+```ruby
+LtiPlatform.create!(
+  iss: "https://canvas.instructure.com",
+  client_id: "10000000000001",
+  name: "Canvas Production",
+  active: true
+)
+```
+
+**또는 SQL로:**
+```sql
+INSERT INTO lti_platforms (iss, client_id, name, active, created_at, updated_at)
+VALUES ('https://canvas.instructure.com', '10000000000001', 'Canvas Production', true, NOW(), NOW());
+```
+
+### 5. 환경 변수 설정 (선택사항)
+
+`.env` 파일 생성 (환경변수 fallback, 하위 호환):
+
+```bash
+# Redis URL (필수)
+REDIS_URL=redis://localhost:6379/0
+
+# 환경변수 fallback (선택사항, DB가 없을 때만 사용)
+# LTI_CLIENT_ID=10000000000001
+# 또는
+# LTI_PLATFORMS='{"https://canvas.instructure.com": "10000000000001"}'
+```
+
+### 6. 서버 실행
 
 ```bash
 rails server
 ```
 
-### 5. Canvas 설정
+### 7. Canvas 설정
 
 Canvas Developer Key를 생성하고 다음 정보를 설정하세요:
 
@@ -73,10 +101,13 @@ app/
 │   └── lti/
 │       ├── login_controller.rb    # OIDC Login Flow 처리
 │       └── launch_controller.rb   # LTI Launch 처리
+├── models/
+│   └── lti_platform.rb            # Canvas Platform 모델 (iss ↔ client_id)
 ├── services/
 │   └── lti/
 │       ├── nonce_manager.rb       # Nonce 관리 (Redis)
-│       └── jwt_verifier.rb        # JWT 검증, JWKS 조회
+│       ├── jwt_verifier.rb        # JWT 검증, JWKS 조회
+│       └── platform_config.rb     # Platform 설정 관리 (DB 기반)
 └── views/
     └── lti/
         └── launch/
@@ -114,6 +145,20 @@ app/
 - **기능**:
   - Nonce 생성 및 Redis 저장 (TTL: 10분)
   - Nonce 소비 (일회성 사용 보장)
+
+#### 5. LtiPlatform (Model)
+- **역할**: Canvas Platform 정보 저장 (persistence)
+- **기능**:
+  - iss(issuer)와 client_id 매핑 저장
+  - 활성화 상태 관리
+  - 여러 Canvas 인스턴스 지원
+
+#### 6. Lti::PlatformConfig
+- **역할**: Platform 설정 조회 서비스
+- **기능**:
+  - 데이터베이스에서 Platform 조회 (우선순위)
+  - 환경변수 fallback (하위 호환)
+  - 캐싱 (5분 TTL)
 
 ## LTI 1.3 Flow
 

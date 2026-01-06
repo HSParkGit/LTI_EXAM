@@ -3,6 +3,8 @@
 ## 개요
 이 문서는 Canvas LMS에서 LTI 1.3 Tool Provider를 등록하기 위한 설정 가이드입니다.
 
+**여러 Canvas 인스턴스 지원**: 이 Tool Provider는 여러 Canvas 인스턴스와 동시에 연동할 수 있습니다.
+
 ## Canvas Developer Key 설정
 
 ### 1. Canvas 관리자 페이지에서 Developer Key 생성
@@ -34,23 +36,72 @@
 ### 2. Client ID 확인
 Developer Key 생성 후, **Client ID**를 확인하세요.
 - 형식: 숫자 (예: `10000000000001`)
-- 이 값은 환경변수 `LTI_CLIENT_ID`로 설정합니다.
+- 이 값을 데이터베이스에 등록합니다 (아래 "Canvas Platform 등록" 참조)
 
-## 환경 변수 설정
+## 데이터베이스 마이그레이션
 
-`.env` 파일 또는 환경 변수에 다음을 설정:
+먼저 데이터베이스 마이그레이션을 실행합니다:
 
 ```bash
-# Canvas Client ID (Developer Key에서 발급받은 값)
-LTI_CLIENT_ID=10000000000001
+mise exec -- rails db:migrate
+```
 
-# Redis URL (Nonce 저장용)
+## Canvas Platform 등록
+
+데이터베이스에 Canvas 인스턴스를 등록합니다. **데이터베이스 방식이 권장됩니다** (환경변수는 fallback만 지원).
+
+### 방법 1: Rails Console 사용 (권장)
+
+```bash
+mise exec -- rails console
+```
+
+```ruby
+# Canvas 인스턴스 추가
+LtiPlatform.create!(
+  iss: "https://canvas.instructure.com",
+  client_id: "10000000000001",
+  name: "Canvas Production",
+  active: true
+)
+
+# 여러 Canvas 인스턴스 추가 예시
+LtiPlatform.create!(
+  iss: "https://canvas.school1.edu",
+  client_id: "20000000000002",
+  name: "School 1 Canvas",
+  active: true
+)
+
+# Platform 목록 확인
+LtiPlatform.active.all
+```
+
+### 방법 2: SQL 직접 실행
+
+```sql
+INSERT INTO lti_platforms (iss, client_id, name, active, created_at, updated_at)
+VALUES 
+  ('https://canvas.instructure.com', '10000000000001', 'Canvas Production', true, NOW(), NOW()),
+  ('https://canvas.school1.edu', '20000000000002', 'School 1 Canvas', true, NOW(), NOW());
+```
+
+### 방법 3: 환경변수 Fallback (하위 호환, 선택사항)
+
+데이터베이스가 없을 때만 사용하는 fallback 방식:
+
+```bash
+# Redis URL (필수)
 REDIS_URL=redis://localhost:6379/0
 
-# Canvas Instance URL (선택사항, 검증용)
-# Canvas에서 전달되는 iss와 비교할 때 사용
-CANVAS_INSTANCE_URL=https://canvas.instructure.com
+# 단일 Canvas (fallback)
+# LTI_CLIENT_ID=10000000000001
+
+# 또는 여러 Canvas (fallback)
+# LTI_PLATFORMS='{"https://canvas.instructure.com": "10000000000001"}'
 ```
+
+**주의**: 환경변수는 fallback이며, 데이터베이스에 등록된 Platform이 있으면 DB가 우선순위가 높습니다.
 
 ## Canvas Course에 Tool 추가
 

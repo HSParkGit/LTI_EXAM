@@ -11,7 +11,7 @@ module Lti
   # Canvas 설정 정보:
   #   - Redirect URI: https://your-tool.com/lti/launch
   #   - Target Link URI: https://your-tool.com/lti/launch
-  class LaunchController < ApplicationController
+  class LaunchController < BaseController
     # LTI Launch 요청 처리
     def handle
       id_token = params[:id_token]
@@ -31,11 +31,14 @@ module Lti
       end
       
       # JWT 검증
+      # iss에 해당하는 client_id 조회 (여러 Canvas 인스턴스 지원)
+      expected_client_id = Lti::PlatformConfig.client_id_for(state_data[:iss])
+      
       begin
         payload = Lti::JwtVerifier.verify(
           id_token,
           expected_iss: state_data[:iss],
-          expected_aud: client_id,
+          expected_aud: expected_client_id,
           nonce: state_data[:nonce]
         )
       rescue Lti::JwtVerifier::VerificationError => e
@@ -72,12 +75,13 @@ module Lti
       state_data
     end
 
-    # Canvas Client ID (환경변수에서 조회)
-    def client_id
-      @client_id ||= ENV.fetch("LTI_CLIENT_ID") do
-        raise "LTI_CLIENT_ID environment variable is required"
-      end
-    end
+    # 이 메서드는 더 이상 사용되지 않음 (PlatformConfig로 대체)
+    # 하위 호환을 위해 유지하지만, 실제로는 사용되지 않음
+    # def client_id
+    #   @client_id ||= ENV.fetch("LTI_CLIENT_ID") do
+    #     raise "LTI_CLIENT_ID environment variable is required"
+    #   end
+    # end
 
     # LTI Claims 추출
     # LTI 1.3 Core Claims:
