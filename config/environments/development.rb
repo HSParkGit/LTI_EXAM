@@ -68,4 +68,10 @@ Rails.application.configure do
 
   # Raise error when a before_action's only/except options reference missing actions
   config.action_controller.raise_on_missing_callback_actions = true
+
+  # Allow ngrok tunnels for LTI testing
+  # ngrok URL이 자주 바뀌므로 패턴으로 허용
+  config.hosts << /.*\.ngrok-free\.app/
+  config.hosts << /.*\.ngrok-free\.dev/
+  config.hosts << /.*\.ngrok\.io/
 end

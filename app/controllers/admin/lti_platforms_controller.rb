@@ -68,7 +68,7 @@ module Admin
     end
 
     def lti_platform_params
-      params.require(:lti_platform).permit(:iss, :client_id, :name, :active)
+      params.require(:lti_platform).permit(:iss, :client_id, :canvas_url, :name, :active)
     end
   end
 end

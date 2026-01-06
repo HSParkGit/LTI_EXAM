@@ -46,6 +46,82 @@
     </div>
   <% end %>
 
+  <!-- 추가 정보 (디버깅/개발용) -->
+  <div style="margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-radius: 4px; border-left: 4px solid #6c757d;">
+    <h3 style="margin-top: 0; color: #495057;">추가 정보 (사용 가능한 모든 LTI Claims)</h3>
+    <details>
+      <summary style="cursor: pointer; color: #007bff; margin-bottom: 10px;">자세히 보기</summary>
+      <div style="margin-top: 10px; font-size: 13px; line-height: 1.6;">
+        <h4>사용자 정보</h4>
+        <ul>
+          <li><strong>이름:</strong> <%= @lti_claims[:user_name] || "N/A" %></li>
+          <li><strong>이름 (Given):</strong> <%= @lti_claims[:user_given_name] || "N/A" %></li>
+          <li><strong>성 (Family):</strong> <%= @lti_claims[:user_family_name] || "N/A" %></li>
+          <li><strong>이메일:</strong> <%= @lti_claims[:user_email] || "N/A" %></li>
+          <li><strong>프로필 사진:</strong> <%= @lti_claims[:user_picture] || "N/A" %></li>
+          <li><strong>User Sub:</strong> <%= @lti_claims[:user_sub] %></li>
+          <% if @lti_claims[:canvas_user_id] %>
+            <li><strong>Canvas User ID:</strong> <%= @lti_claims[:canvas_user_id] %></li>
+          <% end %>
+        </ul>
+
+        <h4>코스 (Context) 정보</h4>
+        <ul>
+          <li><strong>코스 ID:</strong> <%= @lti_claims[:course_id] || "N/A" %></li>
+          <li><strong>코스 제목:</strong> <%= @lti_claims[:context_title] || "N/A" %></li>
+          <li><strong>코스 타입:</strong> <%= @lti_claims[:context_type] || "N/A" %></li>
+          <li><strong>코스 레이블:</strong> <%= @lti_claims[:context_label] || "N/A" %></li>
+          <% if @lti_claims[:canvas_course_id] %>
+            <li><strong>Canvas Course ID:</strong> <%= @lti_claims[:canvas_course_id] %></li>
+          <% end %>
+          <% if @lti_claims[:canvas_workflow_state] %>
+            <li><strong>코스 상태:</strong> <%= @lti_claims[:canvas_workflow_state] %></li>
+          <% end %>
+        </ul>
+
+        <% if @lti_claims[:resource_link_id] %>
+          <h4>Resource Link (과제/모듈) 정보</h4>
+          <ul>
+            <li><strong>Resource Link ID:</strong> <%= @lti_claims[:resource_link_id] %></li>
+            <li><strong>Resource Link 제목:</strong> <%= @lti_claims[:resource_link_title] || "N/A" %></li>
+            <li><strong>Resource Link 설명:</strong> <%= @lti_claims[:resource_link_description] || "N/A" %></li>
+          </ul>
+        <% end %>
+
+        <h4>역할 정보</h4>
+        <ul>
+          <li><strong>역할:</strong> <%= @lti_claims[:user_role] == :instructor ? "강사" : "학생" %></li>
+          <li><strong>전체 Roles:</strong> <%= @lti_claims[:user_roles].join(", ") if @lti_claims[:user_roles].is_a?(Array) %></li>
+        </ul>
+
+        <h4>LTI 정보</h4>
+        <ul>
+          <% if @lti_claims[:deployment_id] %>
+            <li><strong>Deployment ID:</strong> <%= @lti_claims[:deployment_id] %></li>
+          <% end %>
+          <li><strong>Message Type:</strong> <%= @lti_claims[:message_type] || "N/A" %></li>
+          <li><strong>Version:</strong> <%= @lti_claims[:version] || "N/A" %></li>
+          <li><strong>Target Link URI:</strong> <%= @lti_claims[:target_link_uri] || "N/A" %></li>
+          <li><strong>Issuer:</strong> <%= @lti_claims[:issuer] || "N/A" %></li>
+          <li><strong>Audience (Client ID):</strong> <%= @lti_claims[:audience] || "N/A" %></li>
+          <% if @lti_claims[:issued_at] %>
+            <li><strong>발급 시간:</strong> <%= @lti_claims[:issued_at] %></li>
+          <% end %>
+          <% if @lti_claims[:expiration] %>
+            <li><strong>만료 시간:</strong> <%= @lti_claims[:expiration] %></li>
+          <% end %>
+        </ul>
+
+        <% if @lti_claims[:canvas_account_id] %>
+          <h4>Canvas 추가 정보</h4>
+          <ul>
+            <li><strong>Account ID:</strong> <%= @lti_claims[:canvas_account_id] %></li>
+          </ul>
+        <% end %>
+      </div>
+    </details>
+  </div>
+
   <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
     <p>LTI 1.3 Launch가 성공적으로 완료되었습니다.</p>
   </div>

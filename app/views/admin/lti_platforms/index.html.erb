@@ -8,7 +8,8 @@
     <table class="table">
       <thead>
         <tr>
-          <th>ISS (Canvas URL)</th>
+          <th>ISS</th>
+          <th>Canvas URL</th>
           <th>Client ID</th>
           <th>이름</th>
           <th>상태</th>
@@ -20,6 +21,7 @@
         <% @lti_platforms.each do |platform| %>
           <tr>
             <td><code><%= platform.iss %></code></td>
+            <td><code><%= platform.canvas_url || platform.iss %></code></td>
             <td><code><%= platform.client_id %></code></td>
             <td><%= platform.name || "-" %></td>
             <td>

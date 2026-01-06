@@ -58,6 +58,30 @@ module Lti
         end
       end
 
+      # iss(issuer)에 해당하는 실제 Canvas 인스턴스 URL 조회
+      # Canvas Open Source의 경우 canvas_url을 사용, 없으면 iss 사용
+      # @param iss [String] Canvas 발급자 URL
+      # @return [String] 실제 Canvas 인스턴스 URL
+      # @raise [ConfigurationError] 설정이 없거나 iss가 등록되지 않은 경우
+      def canvas_url_for(iss)
+        # 캐시 확인
+        cache_key = "canvas_url:#{iss}"
+        if cached = get_from_cache(cache_key)
+          return cached
+        end
+        
+        # 1. 데이터베이스에서 조회 (우선순위)
+        platform = LtiPlatform.by_iss(iss).first
+        if platform
+          actual_url = platform.actual_canvas_url
+          set_cache(cache_key, actual_url)
+          return actual_url
+        end
+        
+        # 2. 환경변수 fallback 없음 (canvas_url은 DB에서만 관리)
+        raise ConfigurationError, "No platform configured for issuer: #{iss}. Please add it to the database."
+      end
+
       # 모든 등록된 Platform 목록 (DB + 환경변수)
       # @return [Array<String>] iss 목록
       def registered_issuers

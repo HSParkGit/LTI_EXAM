@@ -36,8 +36,11 @@ module Lti
         # JWT 디코딩 (서명 검증 없이 먼저 헤더 확인)
         header, payload = decode_without_verification(id_token)
         
+        # Canvas Open Source의 경우 실제 Canvas 인스턴스 URL로 JWKS 조회
+        canvas_url = Lti::PlatformConfig.canvas_url_for(expected_iss)
+        
         # JWKS endpoint에서 공개키 조회
-        jwks = fetch_jwks(expected_iss)
+        jwks = fetch_jwks(canvas_url)
         public_key = find_public_key(jwks, header["kid"])
         
         # JWT 서명 검증 및 디코딩
@@ -60,8 +63,9 @@ module Lti
       end
 
       # Canvas JWKS endpoint에서 공개키 조회
-      def fetch_jwks(issuer)
-        jwks_url = "#{issuer}/api/lti/security/jwks"
+      # @param canvas_url [String] 실제 Canvas 인스턴스 URL (iss가 아닌 canvas_url)
+      def fetch_jwks(canvas_url)
+        jwks_url = "#{canvas_url}/api/lti/security/jwks"
         
         # 캐시 확인 (5분 캐시)
         cache_key = jwks_url
@@ -97,6 +101,7 @@ module Lti
       end
 
       # JWK를 RSA 공개키로 변환
+      # OpenSSL 3.0 호환 방식 사용
       def jwk_to_rsa(jwk)
         n = Base64.urlsafe_decode64(jwk["n"])
         e = Base64.urlsafe_decode64(jwk["e"])
@@ -105,11 +110,14 @@ module Lti
         n_bn = OpenSSL::BN.new(n, 2)
         e_bn = OpenSSL::BN.new(e, 2)
         
-        # RSA 공개키 생성
-        key = OpenSSL::PKey::RSA.new
-        key.set_key(n_bn, e_bn, nil)
+        # OpenSSL 3.0 호환 방식: RSA.new를 사용하여 직접 생성
+        # 또는 sequence를 사용한 DER 인코딩
+        seq = OpenSSL::ASN1::Sequence([
+          OpenSSL::ASN1::Integer(n_bn),
+          OpenSSL::ASN1::Integer(e_bn)
+        ])
         
-        key
+        OpenSSL::PKey::RSA.new(seq.to_der)
       rescue StandardError => e
         raise VerificationError, "Error converting JWK to RSA: #{e.message}"
       end

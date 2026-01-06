@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_01_05_091901) do
+ActiveRecord::Schema[7.1].define(version: 2026_01_06_045821) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -21,6 +21,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_05_091901) do
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "canvas_url"
     t.index ["active"], name: "index_lti_platforms_on_active"
     t.index ["iss"], name: "index_lti_platforms_on_iss", unique: true
   end

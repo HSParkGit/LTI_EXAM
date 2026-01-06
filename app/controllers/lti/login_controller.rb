@@ -19,6 +19,7 @@ module Lti
       iss = params[:iss]
       login_hint = params[:login_hint]
       target_link_uri = params[:target_link_uri]
+      lti_message_hint = params[:lti_message_hint]
       
       # 필수 파라미터 검증
       if iss.blank? || login_hint.blank? || target_link_uri.blank?
@@ -45,7 +46,8 @@ module Lti
         login_hint: login_hint,
         target_link_uri: target_link_uri,
         state: state,
-        nonce: nonce
+        nonce: nonce,
+        lti_message_hint: lti_message_hint
       )
       
       # Canvas Authorization Endpoint로 리다이렉트
@@ -57,16 +59,24 @@ module Lti
     # Canvas Authorization Endpoint URL 생성
     # Canvas 설정:
     #   - Client ID: Canvas Developer Key에서 발급받은 값 (예: 10000000000001)
-    #   - 여러 Canvas 인스턴스 지원: 환경변수 LTI_PLATFORMS로 iss → client_id 매핑
-    #   - 단일 Canvas: 환경변수 LTI_CLIENT_ID 사용 (하위 호환)
-    def build_authorization_url(issuer:, login_hint:, target_link_uri:, state:, nonce:)
+    #   - Canvas Open Source: iss는 https://canvas.instructure.com이지만,
+    #     실제 Canvas 인스턴스 URL(canvas_url)을 사용하여 endpoint 생성
+    def build_authorization_url(issuer:, login_hint:, target_link_uri:, state:, nonce:, lti_message_hint: nil)
       client_id = Lti::PlatformConfig.client_id_for(issuer)
       
+      # Canvas Open Source의 경우 실제 Canvas 인스턴스 URL 사용
+      # iss는 https://canvas.instructure.com이지만, 실제 endpoint는 canvas_url을 사용
+      canvas_url = Lti::PlatformConfig.canvas_url_for(issuer)
+      
       # Canvas Authorization Endpoint
-      # 형식: {issuer}/api/lti/authorize_redirect
-      auth_endpoint = "#{issuer}/api/lti/authorize_redirect"
+      # 형식: {canvas_url}/api/lti/authorize_redirect
+      auth_endpoint = "#{canvas_url}/api/lti/authorize_redirect"
       
       # OAuth 2.0 Authorization Request 파라미터
+      # LTI 1.3 OIDC Login Flow 요구사항:
+      #   - scope: "openid" (필수)
+      #   - response_type: "id_token"
+      #   - response_mode: "form_post"
       params = {
         response_type: "id_token",
         client_id: client_id,
@@ -75,8 +85,13 @@ module Lti
         state: state,
         response_mode: "form_post",
         nonce: nonce,
-        prompt: "none"
+        prompt: "none",
+        scope: "openid"
       }
+      
+      # lti_message_hint는 선택적이지만 Canvas가 보낸 경우 전달해야 함
+      # Canvas가 이 값을 사용하여 Launch 컨텍스트 정보를 전달
+      params[:lti_message_hint] = lti_message_hint if lti_message_hint.present?
       
       "#{auth_endpoint}?#{params.to_query}"
     end

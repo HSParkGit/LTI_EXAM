@@ -14,9 +14,20 @@
     <% end %>
 
     <div class="form-group">
-      <%= form.label :iss, "Canvas Instance URL (ISS)" %>
+      <%= form.label :iss, "Canvas 발급자 (ISS)" %>
       <%= form.text_field :iss, class: "form-control", placeholder: "https://canvas.instructure.com", required: true %>
-      <small class="form-text text-muted">Canvas 인스턴스의 전체 URL입니다. 예: https://canvas.school.edu</small>
+      <small class="form-text text-muted">Canvas가 보내는 발급자 값입니다. Canvas Open Source는 보통 <code>https://canvas.instructure.com</code>입니다.</small>
+    </div>
+
+    <div class="form-group">
+      <%= form.label :canvas_url, "실제 Canvas 인스턴스 URL" %>
+      <%= form.text_field :canvas_url, class: "form-control", placeholder: "https://your-canvas.ngrok-free.app" %>
+      <small class="form-text text-muted">
+        <strong>Canvas Open Source 필수:</strong> 실제 Canvas 인스턴스 URL입니다.<br>
+        예: <code>https://5e60aecc33bb.ngrok-free.app</code><br>
+        이 URL은 authorization endpoint, token endpoint, JWKS endpoint에 사용됩니다.<br>
+        비워두면 ISS 값을 사용합니다.
+      </small>
     </div>
 
     <div class="form-group">

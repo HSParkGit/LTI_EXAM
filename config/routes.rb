@@ -6,10 +6,10 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   # LTI 1.3 Routes
-  # GET /lti/login - OIDC Login Initiation (Canvas에서 호출)
+  # GET/POST /lti/login - OIDC Login Initiation (Canvas에서 호출, 일부 Canvas 버전은 POST 사용)
   # POST /lti/launch - LTI Launch (Canvas에서 id_token 전송)
   namespace :lti do
-    get "login", to: "login#initiate"
+    match "login", to: "login#initiate", via: [:get, :post]
     post "launch", to: "launch#handle"
   end
 
