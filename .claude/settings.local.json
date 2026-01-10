@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "Bash(brew upgrade:*)",
+      "Bash(git mv:*)"
     ]
   }
 }
