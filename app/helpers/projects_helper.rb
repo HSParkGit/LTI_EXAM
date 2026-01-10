@@ -51,15 +51,17 @@ module ProjectsHelper
 
   # 날짜를 'MMM D, h:mm A' 형식으로 포맷
   # @param date_string [String] ISO 8601 날짜 문자열
-  # @return [String] 포맷된 날짜 (예: 'Nov 1, 2:00 PM')
+  # @return [String] 포맷된 날짜 (예: 'Nov 1, 2:00 PM' 또는 'Jan 31, 16:15')
   #
   # 예시:
   #   format_date('2025-11-01T14:00:00Z') => 'Nov 1, 2:00 PM'
+  #   format_date('2025-01-31T16:15:00Z') => 'Jan 31, 16:15'
   def format_date(date_string)
     return '-' unless date_string.present?
 
     date = Time.parse(date_string)
-    date.strftime('%b %d, %l:%M %p')
+    # 테이블 형식에서는 시간만 표시 (24시간 형식)
+    date.strftime('%b %d, %H:%M')
   rescue ArgumentError => e
     Rails.logger.error "날짜 포맷팅 실패: #{e.message}"
     '-'

@@ -1,0 +1,87 @@
+<tr>
+  <!-- Project Name Column -->
+  <td class="project-name-cell">
+    <div>
+      <%= link_to project[:name], project_path(project[:id]) %>
+    </div>
+    <div class="project-date-info">
+      Start - - Due 
+      <% if project[:assignments].present? && project[:assignments].any? %>
+        <% first_due = project[:assignments].find { |a| a['due_at'].present? } %>
+        <% if first_due %>
+          <%= format_date(first_due['due_at']) %>
+        <% else %>
+          -
+        <% end %>
+      <% else %>
+        -
+      <% end %>
+      / End -
+    </div>
+    <div class="project-actions">
+      <%= link_to '보기', project_path(project[:id]), class: 'btn-action btn-view' %>
+      <%= link_to '수정', edit_project_path(project[:id]), class: 'btn-action btn-edit' %>
+      <%= button_to '삭제', project_path(project[:id]), 
+          method: :delete, 
+          data: { confirm: '정말 삭제하시겠습니까?', turbo: false }, 
+          class: 'btn-action btn-delete',
+          form: { style: 'display: inline;' } %>
+    </div>
+  </td>
+  
+  <!-- STEP Columns -->
+  <% (1..max_steps).each do |step_num| %>
+    <% assignment = project[:assignments]&.[](step_num - 1) %>
+    <td class="step-cell">
+      <% if assignment %>
+        <% step_status = get_step_status(assignment) %>
+        <div class="step-content">
+          <div class="step-icons">
+            <span class="step-icon">💬</span>
+            <span class="step-icon">⋮</span>
+          </div>
+          <% if assignment['due_at'].present? %>
+            <div class="step-due-date">
+              Due <%= format_date(assignment['due_at']) %>
+            </div>
+          <% end %>
+          <div class="step-badges">
+            <!-- Status Badge -->
+            <span class="badge badge-<%= step_status %>">
+              <%= case step_status
+                  when 'past' then 'Past'
+                  when 'current' then 'Current'
+                  when 'upcoming' then 'Upcoming'
+                  else 'Empty'
+                  end %>
+            </span>
+            
+            <!-- Instructor: Grading Status -->
+            <% if @user_role == :instructor %>
+              <% if (assignment['grading_required'] || 0) > 0 %>
+                <span class="badge badge-needs-grading">
+                  Needs Grading
+                </span>
+              <% elsif (assignment['graded_count'] || 0) > 0 && (assignment['submitted_count'] || 0) > 0 %>
+                <span class="badge badge-submitted">
+                  Graded: <%= assignment['graded_count'] %>/<%= assignment['submitted_count'] %>
+                </span>
+              <% end %>
+            <% else %>
+              <!-- Student: Submission Status -->
+              <% if assignment['is_submitted'] %>
+                <span class="badge badge-submitted">제출 완료</span>
+              <% else %>
+                <span class="badge badge-not-submitted">미제출</span>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      <% else %>
+        <div class="step-content">
+          <span class="badge badge-empty">-</span>
+        </div>
+      <% end %>
+    </td>
+  <% end %>
+</tr>

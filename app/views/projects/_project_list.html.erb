@@ -1,0 +1,89 @@
+<% if projects.present? && projects.any? %>
+  <% projects.each do |project| %>
+    <div class="project-card">
+      <div class="project-header">
+        <div>
+          <h3 class="project-title">
+            <%= link_to project[:name], project_path(project[:id]), class: 'text-decoration-none' %>
+          </h3>
+          <% if category == 'unpublished' %>
+            <span class="badge badge-warning">미공개</span>
+          <% end %>
+        </div>
+        <div class="project-actions">
+          <%= link_to '보기', project_path(project[:id]), class: 'btn btn-sm btn-outline-primary' %>
+          <%= link_to '수정', edit_project_path(project[:id]), class: 'btn btn-sm btn-outline-secondary' %>
+          <%= button_to '삭제', project_path(project[:id]), 
+              method: :delete, 
+              data: { confirm: '정말 삭제하시겠습니까?', turbo: false }, 
+              class: 'btn btn-sm btn-outline-danger',
+              form: { style: 'display: inline;' } %>
+        </div>
+      </div>
+      
+      <!-- STEP 표시 -->
+      <% if project[:assignments].present? && project[:assignments].any? %>
+        <div class="steps-container">
+          <% project[:assignments].each do |assignment| %>
+            <% step_status = get_step_status(assignment) %>
+            <div class="step-badge step-<%= step_status %>">
+              <span class="step-name"><%= assignment['name'] || "STEP" %></span>
+              <% if assignment['due_at'].present? %>
+                <span class="step-date"><%= format_date(assignment['due_at']) %></span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+      
+      <!-- 통계 표시 -->
+      <% if @user_role == :instructor %>
+        <% if project[:assignments].present? && project[:assignments].any? %>
+          <div class="statistics">
+            <% project[:assignments].each do |assignment| %>
+              <div class="stat-item">
+                <strong><%= assignment['name'] || "STEP" %>:</strong>
+                <span class="badge <%= badge_class('submitted') %>">
+                  제출: <%= assignment['submitted_count'] || 0 %>
+                </span>
+                <% if (assignment['grading_required'] || 0) > 0 %>
+                  <span class="badge <%= badge_class('needs-grading') %>">
+                    채점 필요: <%= assignment['grading_required'] || 0 %>
+                  </span>
+                <% elsif (assignment['graded_count'] || 0) > 0 %>
+                  <span class="badge <%= badge_class('graded') %>">
+                    채점 완료: <%= assignment['graded_count'] || 0 %>
+                  </span>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      <% else %>
+        <!-- 학생용: 제출 여부 표시 -->
+        <% if project[:assignments].present? && project[:assignments].any? %>
+          <div class="statistics">
+            <% project[:assignments].each do |assignment| %>
+              <div class="stat-item">
+                <strong><%= assignment['name'] || "STEP" %>:</strong>
+                <% if assignment['is_submitted'] %>
+                  <span class="badge badge-success">제출 완료</span>
+                <% else %>
+                  <span class="badge badge-warning">미제출</span>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+<% else %>
+  <div class="empty-state">
+    <div class="empty-state-icon">📋</div>
+    <p>프로젝트가 없습니다.</p>
+    <% if category == 'current' || category == 'unpublished' %>
+      <%= link_to '새 프로젝트를 생성', new_project_path, class: 'btn btn-primary' %>해보세요.
+    <% end %>
+  </div>
+<% end %>

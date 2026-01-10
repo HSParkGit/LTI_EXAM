@@ -21,19 +21,31 @@ class ProjectsController < ApplicationController
   
   # Project 목록
   def index
-    @project_service = ProjectService.new(@lti_context, @canvas_api)
-    @projects = @project_service.projects
+    @project_service = ProjectService.new(@lti_context, @lti_claims, @canvas_api)
+    @projects_by_category = @project_service.projects_with_statistics
+    @user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
   end
   
   # Project 상세
   def show
-    @project_service = ProjectService.new(@lti_context, @canvas_api)
+    @project_service = ProjectService.new(@lti_context, @lti_claims, @canvas_api)
     @project_data = @project_service.project_with_assignments(@project)
+    @user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
+    @canvas_url = LtiPlatform.find_by(iss: @lti_claims[:iss] || @lti_claims["iss"])&.actual_canvas_url
   end
   
   # Project 생성 폼
   def new
     @project = Project.new
+    course_id = @lti_context.canvas_course_id
+    
+    # Assignment Groups 조회
+    assignment_groups_client = CanvasApi::AssignmentGroupsClient.new(@canvas_api)
+    @assignment_groups = assignment_groups_client.list(course_id) rescue []
+    
+    # Group Categories 조회
+    group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
+    @group_categories = group_categories_client.list(course_id) rescue []
   end
   
   # Project 생성
@@ -58,16 +70,36 @@ class ProjectsController < ApplicationController
   
   # Project 수정 폼
   def edit
+    course_id = @lti_context.canvas_course_id
+    
+    # Assignment Groups 조회
+    assignment_groups_client = CanvasApi::AssignmentGroupsClient.new(@canvas_api)
+    @assignment_groups = assignment_groups_client.list(course_id) rescue []
+    
+    # Group Categories 조회
+    group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
+    @group_categories = group_categories_client.list(course_id) rescue []
+    
+    # 기존 Assignment 정보 조회
+    @project_service = ProjectService.new(@lti_context, @lti_claims, @canvas_api)
+    @project_data = @project_service.project_with_assignments(@project)
   end
   
   # Project 수정
   def update
-    if @project.update(project_params)
-      redirect_to project_path(@project), notice: '프로젝트가 수정되었습니다.'
-    else
-      flash[:error] = "프로젝트 수정 실패: #{@project.errors.full_messages.join(', ')}"
-      render :edit, status: :unprocessable_entity
-    end
+    project_builder = ProjectBuilder.new(
+      lti_context: @lti_context,
+      canvas_api: @canvas_api,
+      lti_user_sub: @lti_claims[:user_sub] || @lti_claims["user_sub"],
+      project: @project
+    )
+    
+    @project = project_builder.update_project(project_params)
+    
+    redirect_to project_path(@project), notice: '프로젝트가 수정되었습니다.'
+  rescue ProjectBuilder::ProjectCreationError => e
+    flash[:error] = e.message
+    render :edit, status: :unprocessable_entity
   end
   
   # Project 삭제
@@ -145,9 +177,34 @@ class ProjectsController < ApplicationController
   
   # Project 파라미터
   def project_params
-    # project 키가 있으면 사용, 없으면 직접 name 파라미터 사용
     if params[:project].present?
-      params.require(:project).permit(:name)
+      params.require(:project).permit(
+        :name,
+        :assignment_group_id,
+        :group_category_id,
+        :grade_group_students_individually,
+        :publish,
+        assignments: [
+          :id,
+          :name,
+          :description,
+          :due_at,
+          :unlock_at,
+          :lock_at,
+          :points_possible,
+          :submission_types,
+          :allowed_extensions,
+          :allowed_attempts,
+          :grading_type,
+          :peer_reviews,
+          :automatic_peer_reviews,
+          :peer_review_count,
+          :peer_reviews_due_at,
+          :intra_group_peer_reviews,
+          :anonymous_peer_reviews,
+          :_destroy
+        ]
+      )
     else
       # 폼에서 project 키 없이 전송된 경우 (fallback)
       { name: params[:name] }
