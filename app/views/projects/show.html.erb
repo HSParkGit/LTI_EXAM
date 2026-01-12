@@ -4,12 +4,14 @@
       <h1><%= @project_data[:name] %></h1>
       <div class="project-header-actions">
         <%= link_to '← 목록으로', projects_path, class: 'btn-back' %>
-        <%= link_to '수정', edit_project_path(@project), class: 'btn-edit' %>
-        <%= button_to '삭제', project_path(@project), 
-            method: :delete, 
-            data: { confirm: '정말 삭제하시겠습니까?', turbo: false }, 
-            class: 'btn-delete',
-            form: { style: 'display: inline;' } %>
+        <% if instructor?(@user_role) %>
+          <%= link_to '수정', edit_project_path(@project), class: 'btn-edit' %>
+          <%= button_to '삭제', project_path(@project), 
+              method: :delete, 
+              data: { confirm: '정말 삭제하시겠습니까?', turbo: false }, 
+              class: 'btn-delete',
+              form: { style: 'display: inline;' } %>
+        <% end %>
       </div>
     </div>
   </div>
@@ -22,158 +24,335 @@
     <div class="alert alert-danger"><%= flash[:error] %></div>
   <% end %>
   
+  <!-- 프로젝트 정보 카드 -->
+  <% if @project_data[:assignments].present? && @project_data[:assignments].any? %>
+    <div class="project-info-card">
+      <div class="project-info-content">
+        <div class="info-row">
+          <span class="info-label">Group Assignment</span>
+          <span class="info-value">This is a Group Assignment</span>
+        </div>
+        <% first_assignment = @project_data[:assignments].first %>
+        <% if first_assignment && first_assignment['group_category_id'].present? %>
+          <div class="info-row">
+            <span class="info-label">Group Set</span>
+            <span class="info-value"><%= first_assignment['group_category_name'] || first_assignment['group_category_id'] %></span>
+          </div>
+        <% end %>
+      </div>
+      
+      <!-- Step Navigator -->
+      <% if @project_data[:assignments].present? && @project_data[:assignments].any? %>
+        <div class="step-navigator-section">
+          <h3 class="step-navigator-title">Step Navigator</h3>
+          <div class="step-navigator-container">
+            <% @project_data[:assignments].each_with_index do |assignment, index| %>
+              <% nav_step_status = get_step_status(assignment) %>
+              <% text_color = case nav_step_status
+                  when 'past' then '#6B7280'
+                  when 'upcoming' then '#9CA3AF'
+                  else '#1F2937'
+                  end %>
+              <div class="step-navigator-item" 
+                   data-step-index="<%= index %>"
+                   onclick="scrollToStep(<%= index %>)">
+                <div class="step-navigator-title-text" style="color: <%= text_color %>">
+                  Step <%= index + 1 %> <%= assignment['name'] || 'Untitled Assignment' %>
+                </div>
+                <% if assignment['due_at'].present? %>
+                  <div class="step-navigator-date" style="color: <%= text_color %>">
+                    <div style="display: flex;">
+                      <span style="width: 84px;">Due</span>
+                      <span style="width: 70px;"><%= format_date_navigator(assignment['due_at'])[0] %></span>
+                      <span style="margin-left: 8px; width: 60px;"><%= format_date_navigator(assignment['due_at'])[1] %></span>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+  
   <!-- STEP 목록 -->
   <% if @project_data[:assignments].present? && @project_data[:assignments].any? %>
     <div class="steps-container">
       <% @project_data[:assignments].each_with_index do |assignment, index| %>
         <% step_status = get_step_status(assignment) %>
-        <div class="step-card step-<%= step_status %>">
-          <!-- Step Header -->
-          <div class="step-header">
-            <div class="step-title-section">
-              <h2 class="step-title">
-                <%= assignment['name'] || "STEP #{index + 1}" %>
-              </h2>
-              <span class="step-badge badge-<%= step_status %>">
-                <%= case step_status
-                    when 'past' then 'Past'
-                    when 'current' then 'Current'
-                    when 'upcoming' then 'Upcoming'
-                    else 'Empty'
-                    end %>
-              </span>
-            </div>
-            <div class="step-actions">
-              <% if @canvas_url.present? && @lti_context.canvas_course_id.present? %>
-                <%= link_to 'Canvas에서 보기', 
-                    canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url),
-                    target: '_blank',
-                    class: 'btn-link' %>
-              <% end %>
-            </div>
-          </div>
-          
-          <!-- Step Description -->
-          <% if assignment['description'].present? %>
-            <div class="step-description">
-              <%= simple_format(assignment['description']) %>
-            </div>
-          <% end %>
-          
-          <!-- Step Details -->
-          <div class="step-details">
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="detail-label">Available from</span>
-                <span class="detail-value">
-                  <%= assignment['unlock_at'].present? ? format_date(assignment['unlock_at']) : '-' %>
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Due Date</span>
-                <span class="detail-value">
-                  <%= assignment['due_at'].present? ? format_date(assignment['due_at']) : '-' %>
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Until</span>
-                <span class="detail-value">
-                  <%= assignment['lock_at'].present? ? format_date(assignment['lock_at']) : '-' %>
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Points</span>
-                <span class="detail-value">
-                  <%= assignment['points_possible'] || 0 %>점
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Status</span>
-                <span class="detail-value">
-                  <span class="badge <%= assignment['workflow_state'] == 'published' ? 'badge-published' : 'badge-unpublished' %>">
-                    <%= assignment['workflow_state'] == 'published' ? 'Published' : 'Unpublished' %>
-                  </span>
-                </span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">Submission Types</span>
-                <span class="detail-value">
-                  <%= Array(assignment['submission_types']).join(', ') || '-' %>
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Instructor Statistics -->
-          <% if @user_role == :instructor %>
-            <div class="step-statistics">
-              <h3 class="statistics-title">Submission Statistics</h3>
-              <div class="statistics-grid">
-                <div class="stat-card">
-                  <div class="stat-number"><%= assignment['submitted_count'] || 0 %></div>
-                  <div class="stat-label">Submitted</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-number"><%= assignment['unsubmitted_count'] || 0 %></div>
-                  <div class="stat-label">Unsubmitted</div>
-                </div>
-                <div class="stat-card stat-card-success">
-                  <div class="stat-number"><%= assignment['graded_count'] || 0 %></div>
-                  <div class="stat-label">Graded</div>
-                </div>
-                <div class="stat-card stat-card-warning">
-                  <div class="stat-number"><%= assignment['grading_required'] || 0 %></div>
-                  <div class="stat-label">Needs Grading</div>
-                </div>
-              </div>
-              
-              <% if @canvas_url.present? && @lti_context.canvas_course_id.present? %>
-                <div class="statistics-actions">
-                  <%= link_to 'SpeedGrader에서 채점', 
-                      speed_grader_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url),
-                      target: '_blank',
-                      class: 'btn-primary' %>
-                  <% if (assignment['grading_required'] || 0) > 0 %>
-                    <span class="badge badge-needs-grading">
-                      <%= assignment['grading_required'] %>건 채점 필요
-                    </span>
+        <div class="step-card step-<%= step_status %>" id="step-<%= index %>">
+          <!-- Step Header (Canvas 스타일) -->
+          <div class="step-header-canvas">
+            <h1 class="step-title-canvas">
+              Step <%= index + 1 %>: <%= assignment['name'] || 'Untitled Assignment' %>
+            </h1>
+            <% if instructor?(@user_role) && @groups.present? && @groups.any? %>
+              <div class="step-group-selector">
+                <label class="group-select-label">Select Group:</label>
+                <select class="group-select-dropdown" id="group-select-<%= index %>">
+                  <% @groups.each do |group| %>
+                    <option value="<%= group['id'] || group[:id] %>">
+                      <%= group['name'] || group[:name] %>
+                    </option>
                   <% end %>
-                </div>
-              <% end %>
-            </div>
-          <% else %>
-            <!-- Student Submission Status -->
-            <div class="step-submission">
-              <h3 class="submission-title">Your Submission</h3>
-              <div class="submission-status">
-                <% if assignment['is_submitted'] %>
-                  <div class="submission-status-content">
-                    <span class="badge badge-submitted">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;">
-                        <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
-                      제출 완료
-                    </span>
-                    <% if @canvas_url.present? && @lti_context.canvas_course_id.present? %>
-                      <%= link_to '제출물 보기', 
-                          canvas_submission_url(@lti_context.canvas_course_id, assignment['id'], @lti_claims[:canvas_user_id] || @lti_claims["canvas_user_id"], @canvas_url),
-                          target: '_blank',
-                          class: 'btn-primary' %>
-                    <% end %>
+                </select>
+              </div>
+            <% end %>
+          </div>
+          
+          <!-- Step 상세 카드 (Canvas 스타일) -->
+          <div class="step-detail-card">
+            <!-- Step Description -->
+            <div class="step-description-canvas">
+              <div class="step-description-box">
+                <% if assignment['description'].present? %>
+                  <div class="step-description-content">
+                    <%= raw assignment['description'] %>
                   </div>
                 <% else %>
-                  <div class="submission-status-content">
-                    <span class="badge badge-not-submitted">미제출</span>
-                    <% if @canvas_url.present? && @lti_context.canvas_course_id.present? %>
-                      <%= link_to '제출하기', 
-                          canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url),
-                          target: '_blank',
-                          class: 'btn-primary' %>
-                    <% end %>
-                  </div>
+                  <p class="step-description-empty">No description provided.</p>
                 <% end %>
               </div>
             </div>
+            
+            <!-- Step 상세 정보 (Canvas 스타일) -->
+            <div class="step-info-list">
+              <div class="step-info-item">
+                <span class="step-info-label">Points:</span>
+                <span class="step-info-value"><%= assignment['points_possible'] || 'N/A' %></span>
+              </div>
+              <% if instructor?(@user_role) %>
+                <% if assignment['grade_group_students_individually'] %>
+                  <div class="step-info-item">
+                    <span class="step-info-label">Grades Assignment</span>
+                    <span class="step-info-value">Assign Grades to Each Student Individually</span>
+                  </div>
+                <% end %>
+                <div class="step-info-item">
+                  <span class="step-info-label">Submitting</span>
+                  <span class="step-info-value"><%= Array(assignment['submission_types']).join(', ') || 'N/A' %></span>
+                </div>
+                <div class="step-info-item">
+                  <span class="step-info-label">Allowed Attempts</span>
+                  <span class="step-info-value"><%= assignment['allowed_attempts'] || '1' %></span>
+                </div>
+              <% else %>
+                <% if assignment['due_at'].present? %>
+                  <div class="step-info-item">
+                    <span class="step-info-label">Due:</span>
+                    <span class="step-info-value"><%= format_date_navigator(assignment['due_at']).join(' ') %></span>
+                  </div>
+                <% end %>
+                <% if assignment['unlock_at'].present? %>
+                  <div class="step-info-item">
+                    <span class="step-info-label">Available:</span>
+                    <span class="step-info-value"><%= format_date_navigator(assignment['unlock_at']).join(' ') %></span>
+                  </div>
+                <% end %>
+                <div class="step-info-item">
+                  <span class="step-info-label">Submitting:</span>
+                  <span class="step-info-value"><%= Array(assignment['submission_types']).join(', ') || 'N/A' %></span>
+                </div>
+                <% if assignment['allowed_extensions'].present? %>
+                  <div class="step-info-item">
+                    <span class="step-info-label">File Types:</span>
+                    <span class="step-info-value"><%= Array(assignment['allowed_extensions']).join(', ') || 'N/A' %></span>
+                  </div>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+          
+          <!-- Instructor Evaluations (Canvas 스타일) -->
+          <% if instructor?(@user_role) %>
+            <section class="evaluations-section">
+              <div class="evaluations-header">
+                <strong class="evaluations-title">Evaluations</strong>
+                <div class="evaluations-actions">
+                  <button 
+                    type="button" 
+                    class="evaluations-peer-review-btn <%= assignment['peer_reviews'] ? 'btn-primary' : 'btn-secondary' %>"
+                    <%= assignment['peer_reviews'] ? '' : 'disabled' %>
+                    onclick="window.open('<%= @canvas_url %>/courses/<%= @lti_context.canvas_course_id %>/assignments/<%= assignment['id'] %>/peer_reviews', '_blank')"
+                    style="cursor: <%= assignment['peer_reviews'] ? 'pointer' : 'not-allowed' %>">
+                    Assign Peer Review
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Group Members 통계 -->
+              <% group_submissions = assignment['group_submissions'] || [] %>
+              <% completed_count = group_submissions.count { |s| s['submission']&.dig('published_score') != nil } %>
+              <div class="evaluations-group-info">
+                <img src="/images/project/icon_evaluations_arrow.svg" alt="" class="evaluations-arrow-icon" />
+                <span class="evaluations-group-text">
+                  Group Members{' '}
+                  <span class="evaluations-complete-count">
+                    <%= completed_count %>/<%= group_submissions.length %> Complete
+                  </span>
+                </span>
+              </div>
+              
+              <!-- 그룹 멤버별 제출 상태 -->
+              <div class="evaluations-list">
+                <% if group_submissions.any? %>
+                  <% group_submissions.each_with_index do |item, idx| %>
+                    <% submission = item['submission'] || {} %>
+                    <% workflow_state = submission['workflow_state'] || 'unsubmitted' %>
+                    <% user_id = submission['user_id'] %>
+                    <% user_name = item['user_name'] || "Student #{user_id}" %>
+                    <div class="evaluations-item">
+                      <div class="evaluations-item-content">
+                        <span class="evaluations-item-left">
+                          <span class="evaluations-item-number"><%= idx + 1 %></span>
+                          <span class="evaluations-item-name"><%= user_name %></span>
+                        </span>
+                        <div class="evaluations-item-status">
+                          <% if workflow_state == 'graded' %>
+                            <div class="evaluations-status-graded">
+                              <img src="/images/project/icon_group_check.svg" alt="check" class="evaluations-check-icon" />
+                              <span>Graded</span>
+                            </div>
+                          <% elsif workflow_state == 'submitted' %>
+                            <div class="evaluations-status-submitted">Submitted</div>
+                          <% else %>
+                            <div class="evaluations-status-not-yet">Not Yet</div>
+                          <% end %>
+                        </div>
+                        <a href="<%= speed_grader_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>&student_id=<%= user_id %>" target="_blank" rel="noopener noreferrer">
+                          <button class="evaluations-button <%= submission['published_score'] != nil ? 'btn-outlined' : 'btn-primary' %>">
+                            <%= submission['published_score'] != nil ? 'Revaluation' : 'Evaluations' %>
+                          </button>
+                        </a>
+                      </div>
+                    </div>
+                  <% end %>
+                <% else %>
+                  <div class="evaluations-empty">
+                    <p>No group members found.</p>
+                  </div>
+                <% end %>
+              </div>
+            </section>
+          <% else %>
+            <!-- Student Submission Phase (Canvas 스타일) -->
+            <section class="submission-phase-section">
+              <header class="submission-phase-header">
+                <img src="/images/project/icon_submission.svg" alt="Submission phase icon" class="submission-phase-icon" />
+                <h2 class="submission-phase-title">Submission Phase</h2>
+              </header>
+              <div class="submission-phase-grid">
+                <!-- 1. Submit -->
+                <div class="submission-phase-card">
+                  <article class="submission-phase-card-content submission-phase-card-submit">
+                    <div class="submission-phase-card-header">
+                      <div class="submission-phase-card-title-section">
+                        <h3 class="submission-phase-card-title">1. submit</h3>
+                        <% if assignment['due_at'].present? %>
+                          <p class="submission-phase-card-due">Due: <%= format_date_navigator(assignment['due_at']).join(' ') %></p>
+                        <% end %>
+                      </div>
+                      <img src="/images/project/icon_submission.svg" alt="Submit task icon" class="submission-phase-card-icon" />
+                    </div>
+                    <div class="submission-phase-card-body">
+                      <div class="submission-phase-card-button-wrapper">
+                        <% if assignment['is_submitted'] %>
+                          <% submission_attempts = assignment['submission_attempts'] || assignment['submission']&.dig('attempt') || 1 %>
+                          <button class="submission-phase-button submission-phase-button-resubmit" 
+                                  onclick="window.open('<%= canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>', '_blank')">
+                            Resubmit (<%= submission_attempts %> attempts)
+                          </button>
+                          <% submitted_at = assignment['submitted_at'] || assignment['submission']&.dig('submitted_at') %>
+                          <% if submitted_at.present? %>
+                            <div class="submission-phase-submitted-info">
+                              <span>Submitted: <%= format_date_navigator(submitted_at).join(' ') %></span>
+                            </div>
+                          <% end %>
+                        <% else %>
+                          <button class="submission-phase-button submission-phase-button-submit" 
+                                  onclick="window.open('<%= canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>', '_blank')">
+                            Submit
+                          </button>
+                        <% end %>
+                        <p class="submission-phase-refresh-note">Please refresh the page after submitting your assignment.</p>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+                
+                <!-- 2. Review (Peer Review, 조건부) -->
+                <% if assignment['peer_reviews'] %>
+                  <div class="submission-phase-card">
+                    <article class="submission-phase-card-content submission-phase-card-review">
+                      <div class="submission-phase-card-header">
+                        <div class="submission-phase-card-title-section">
+                          <h3 class="submission-phase-card-title">2. Review</h3>
+                          <% if assignment['peer_reviews_due_at'].present? || assignment['lock_at'].present? %>
+                            <p class="submission-phase-card-due">Until: <%= format_date_navigator(assignment['peer_reviews_due_at'] || assignment['lock_at']).join(' ') %></p>
+                          <% end %>
+                        </div>
+                        <img src="/images/project/icon_review.svg" alt="Review task icon" class="submission-phase-card-icon" />
+                      </div>
+                      <div class="submission-phase-card-body">
+                        <% if assignment['is_submitted'] %>
+                          <div class="submission-phase-card-button-wrapper">
+                            <button class="submission-phase-button submission-phase-button-review" 
+                                    onclick="window.open('<%= canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>', '_blank')">
+                              Peer Review
+                            </button>
+                          </div>
+                        <% else %>
+                          <div class="submission-phase-locked">
+                            <img src="/images/project/icon_lock.svg" alt="Unlock icon" class="submission-phase-lock-icon" />
+                            <p>unlocks <%= format_date_navigator(assignment['peer_reviews_due_at'] || assignment['lock_at']).join(' ') %></p>
+                          </div>
+                        <% end %>
+                      </div>
+                    </article>
+                  </div>
+                <% end %>
+                
+                <!-- 3. Feedback -->
+                <div class="submission-phase-card">
+                  <article class="submission-phase-card-content submission-phase-card-feedback">
+                    <div class="submission-phase-card-header">
+                      <div class="submission-phase-card-title-section">
+                        <h3 class="submission-phase-card-title">3. Feedback</h3>
+                      </div>
+                      <img src="/images/project/icon_feedback.svg" alt="Feedback task icon" class="submission-phase-card-icon" />
+                    </div>
+                    <div class="submission-phase-card-body">
+                      <div class="submission-phase-card-button-wrapper">
+                        <% is_submitted_or_graded = assignment['is_submitted'] || assignment['submission']&.dig('workflow_state') == 'submitted' || assignment['submission']&.dig('workflow_state') == 'graded' %>
+                        <% if is_submitted_or_graded %>
+                          <button class="submission-phase-button submission-phase-button-view" 
+                                  onclick="window.open('<%= canvas_submission_url(@lti_context.canvas_course_id, assignment['id'], @lti_claims[:canvas_user_id] || @lti_claims["canvas_user_id"], @canvas_url) %>', '_blank')">
+                            View Submission
+                          </button>
+                          <div class="submission-phase-feedback-status">
+                            <% workflow_state = assignment['submission']&.dig('workflow_state') || (assignment['is_graded'] ? 'graded' : 'submitted') %>
+                            <% if workflow_state == 'graded' %>
+                              <% graded_at = assignment['graded_at'] || assignment['submission']&.dig('graded_at') %>
+                              <p>Feedback received: <%= graded_at ? format_date_navigator(graded_at).join(' ') : '-' %></p>
+                            <% else %>
+                              <p>Awaiting Reviews</p>
+                            <% end %>
+                          </div>
+                        <% else %>
+                          <button class="submission-phase-button submission-phase-button-disabled" disabled>
+                            View Submission
+                          </button>
+                          <div class="submission-phase-feedback-status">
+                            <p>Awaiting Reviews</p>
+                          </div>
+                        <% end %>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </section>
           <% end %>
         </div>
       <% end %>
@@ -191,6 +370,105 @@
     margin: 0 auto;
     padding: 2rem;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  
+  /* 프로젝트 정보 카드 */
+  .project-info-card {
+    background-color: white;
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+  
+  .project-info-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 12px;
+    color: #4B5563;
+  }
+  
+  .info-row {
+    display: flex;
+  }
+  
+  .info-label {
+    font-weight: 500;
+    width: 120px;
+  }
+  
+  .info-value {
+    flex: 1;
+  }
+  
+  /* Step Navigator */
+  .step-navigator-section {
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .step-navigator-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1F2937;
+    margin-bottom: 12px;
+  }
+  
+  .step-navigator-container {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #E0E0E0 transparent;
+  }
+  
+  .step-navigator-container::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  .step-navigator-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .step-navigator-container::-webkit-scrollbar-thumb {
+    background-color: #E0E0E0;
+    border-radius: 4px;
+  }
+  
+  .step-navigator-item {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    border-radius: 12px;
+    min-width: 200px;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    border: 1px solid #E5E7EB;
+    background-color: white;
+  }
+  
+  .step-navigator-item:hover {
+    border-color: #3B82F6;
+  }
+  
+  .step-navigator-title-text {
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .step-navigator-date {
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .step-navigator-date span:first-child {
+    width: 84px;
   }
   
   .project-header {
@@ -265,132 +543,472 @@
   .steps-container {
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 20px;
   }
   
   .step-card {
-    background-color: white;
-    border: 1px solid #e9ecef;
-    border-radius: 12px;
-    padding: 2rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
   }
   
-  .step-card:hover {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  }
-  
-  .step-card.step-past {
-    border-left: 4px solid #6c757d;
-    background-color: #f8f9fa;
-  }
-  
-  .step-card.step-current {
-    border-left: 4px solid #0626a9;
-    background-color: #f0f4ff;
-  }
-  
-  .step-card.step-upcoming {
-    border-left: 4px solid #ffc107;
-    background-color: #fffbf0;
-  }
-  
-  .step-header {
+  /* Step Header (Canvas 스타일) */
+  .step-header-canvas {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1.5rem;
-  }
-  
-  .step-title-section {
-    display: flex;
     align-items: center;
-    gap: 1rem;
   }
   
-  .step-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #212529;
+  .step-title-canvas {
+    font-size: 24px;
+    font-weight: bold;
+    color: #1F2937;
     margin: 0;
   }
   
-  .step-badge {
-    padding: 0.375rem 0.75rem;
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-  
-  .badge-past {
-    background-color: #e9ecef;
-    color: #495057;
-  }
-  
-  .badge-current {
-    background-color: #cfe2ff;
-    color: #084298;
-  }
-  
-  .badge-upcoming {
-    background-color: #fff3cd;
-    color: #856404;
-  }
-  
-  .step-actions {
+  .step-group-selector {
     display: flex;
-    gap: 0.5rem;
+    align-items: center;
+    gap: 10px;
   }
   
-  .btn-link {
-    color: #0626a9;
-    text-decoration: none;
-    font-size: 0.875rem;
+  .group-select-label {
+    font-size: 14px;
     font-weight: 500;
+    color: #4B5563;
   }
   
-  .btn-link:hover {
-    text-decoration: underline;
+  .group-select-dropdown {
+    padding: 6px 12px;
+    border: 1px solid #d0d1d7;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: white;
+    cursor: pointer;
   }
   
-  .step-description {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    background-color: #f8f9fa;
+  .group-select-dropdown:focus {
+    outline: none;
+    border-color: #0626a9;
+  }
+  
+  /* Step 상세 카드 (Canvas 스타일) */
+  .step-detail-card {
+    background-color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border-radius: 20px;
+    padding: 20px;
+    min-height: 420px;
+  }
+  
+  /* Step Description (Canvas 스타일) */
+  .step-description-canvas {
+    margin-bottom: 20px;
+  }
+  
+  .step-description-box {
+    font-size: 12px;
+    color: #9CA3AF;
+    word-break: break-words;
+    height: 200px;
+    overflow-y: auto;
+    border: 1px solid rgba(173, 184, 192, 0.4);
     border-radius: 8px;
-    color: #495057;
+    padding: 12px;
+  }
+  
+  .step-description-content {
     line-height: 1.6;
   }
   
-  .step-details {
-    margin-bottom: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e9ecef;
+  .step-description-empty {
+    margin: 0;
+    color: #9CA3AF;
   }
   
-  .detail-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-  }
-  
-  .detail-item {
+  /* Step 상세 정보 (Canvas 스타일) */
+  .step-info-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 12px;
+    font-size: 12px;
   }
   
-  .detail-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #6c757d;
+  .step-info-item {
+    display: flex;
   }
   
-  .detail-value {
-    font-size: 1rem;
-    color: #212529;
+  .step-info-label {
     font-weight: 500;
+    width: 120px;
+    color: #4B5563;
+  }
+  
+  .step-info-value {
+    flex: 1;
+    color: #1F2937;
+  }
+  
+  /* Submission Phase (학생용, Canvas 스타일) */
+  .submission-phase-section {
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .submission-phase-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .submission-phase-icon {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .submission-phase-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+    color: #1F2937;
+  }
+  
+  .submission-phase-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    width: 100%;
+  }
+  
+  .submission-phase-card {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .submission-phase-card-content {
+    padding: 20px;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .submission-phase-card-submit {
+    background-color: #F9FAFB;
+  }
+  
+  .submission-phase-card-review,
+  .submission-phase-card-feedback {
+    background-color: white;
+  }
+  
+  .submission-phase-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  
+  .submission-phase-card-title-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .submission-phase-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: #1F2937;
+  }
+  
+  .submission-phase-card-due {
+    font-size: 14px;
+    color: #6B7280;
+    margin: 0;
+  }
+  
+  .submission-phase-card-icon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .submission-phase-card-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .submission-phase-card-button-wrapper {
+    width: 100%;
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .submission-phase-button {
+    width: 100%;
+    padding: 8px 16px;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .submission-phase-button-submit,
+  .submission-phase-button-resubmit {
+    background-color: white;
+    color: #374151;
+  }
+  
+  .submission-phase-button-submit:hover,
+  .submission-phase-button-resubmit:hover {
+    background-color: #F9FAFB;
+  }
+  
+  .submission-phase-button-review,
+  .submission-phase-button-view {
+    background-color: white;
+    color: #374151;
+  }
+  
+  .submission-phase-button-review:hover,
+  .submission-phase-button-view:hover {
+    background-color: #F9FAFB;
+  }
+  
+  .submission-phase-button-disabled {
+    background-color: #F3F4F6;
+    color: #9CA3AF;
+    cursor: not-allowed;
+  }
+  
+  .submission-phase-submitted-info {
+    text-align: center;
+    margin-top: 8px;
+  }
+  
+  .submission-phase-submitted-info span {
+    font-size: 14px;
+    color: #4B5563;
+  }
+  
+  .submission-phase-refresh-note {
+    font-size: 14px;
+    color: #EF4444;
+    margin-top: 16px;
+    margin-bottom: 0;
+    text-align: center;
+  }
+  
+  .submission-phase-locked {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .submission-phase-lock-icon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .submission-phase-locked p {
+    font-size: 14px;
+    color: #6B7280;
+    margin: 0;
+  }
+  
+  .submission-phase-feedback-status {
+    text-align: center;
+    margin-top: 8px;
+  }
+  
+  .submission-phase-feedback-status p {
+    font-size: 14px;
+    color: #6B7280;
+    margin: 0;
+  }
+  
+  /* Evaluations 섹션 (교수용, Canvas 스타일) */
+  .evaluations-section {
+    background-color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border-radius: 20px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  
+  .evaluations-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .evaluations-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1F2937;
+  }
+  
+  .evaluations-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .evaluations-peer-review-btn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .evaluations-peer-review-btn.btn-primary {
+    background-color: #0626a9;
+    color: white;
+  }
+  
+  .evaluations-peer-review-btn.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+    cursor: not-allowed;
+  }
+  
+  .evaluations-group-info {
+    display: flex;
+    padding: 10px;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  
+  .evaluations-arrow-icon {
+    width: 10px;
+    height: 10px;
+  }
+  
+  .evaluations-group-text {
+    font-size: 14px;
+    color: #6B7280;
+  }
+  
+  .evaluations-complete-count {
+    color: #04CD00;
+  }
+  
+  .evaluations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .evaluations-item {
+    display: flex;
+    flex-grow: 1;
+    align-items: center;
+  }
+  
+  .evaluations-item-content {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 20px;
+    border-radius: 20px;
+    background-color: rgba(172, 176, 179, 0.15);
+  }
+  
+  .evaluations-item-left {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .evaluations-item-number {
+    width: 40px;
+    height: 40px;
+    background-color: #91B0FF;
+    border-radius: 40px;
+    font-size: 16px;
+    line-height: 40px;
+    text-align: center;
+    font-weight: bold;
+    color: white;
+  }
+  
+  .evaluations-item-name {
+    font-size: 16px;
+    color: #1F2937;
+  }
+  
+  .evaluations-item-status {
+    width: 90px;
+  }
+  
+  .evaluations-status-graded {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #04CD00;
+    font-size: 14px;
+  }
+  
+  .evaluations-check-icon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .evaluations-status-submitted {
+    color: #F59E0B;
+    font-size: 14px;
+    text-align: center;
+  }
+  
+  .evaluations-status-not-yet {
+    color: #9CA3AF;
+    font-size: 14px;
+    text-align: center;
+  }
+  
+  .evaluations-button {
+    width: 100px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+  }
+  
+  .evaluations-button.btn-primary {
+    background-color: #0626a9;
+    color: white;
+    border: 1px solid #0626a9;
+  }
+  
+  .evaluations-button.btn-outlined {
+    background-color: white;
+    color: #0626a9;
+    border: 1px solid #0626a9;
+  }
+  
+  .evaluations-empty {
+    text-align: center;
+    padding: 20px;
+    color: #6B7280;
   }
   
   .badge {
@@ -551,3 +1169,12 @@
     border: 1px solid #f5c2c7;
   }
 </style>
+
+<script>
+  function scrollToStep(index) {
+    const stepElement = document.getElementById('step-' + index);
+    if (stepElement) {
+      stepElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+</script>

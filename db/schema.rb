@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_01_06_180000) do
+ActiveRecord::Schema[7.1].define(version: 2026_01_12_084056) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -39,7 +39,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_06_180000) do
     t.string "client_secret", comment: "Canvas Developer Key의 Client Secret (암호화 저장)"
     t.string "canvas_api_token", comment: "Canvas Personal Access Token (암호화 저장)"
     t.index ["active"], name: "index_lti_platforms_on_active"
-    t.index ["iss"], name: "index_lti_platforms_on_iss", unique: true
+    t.index ["iss", "client_id"], name: "index_lti_platforms_on_iss_and_client_id", unique: true
+    t.index ["iss"], name: "index_lti_platforms_on_iss"
   end
 
   create_table "projects", force: :cascade do |t|

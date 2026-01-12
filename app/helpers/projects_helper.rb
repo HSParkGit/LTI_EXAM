@@ -67,6 +67,44 @@ module ProjectsHelper
     '-'
   end
 
+  # 사용자가 교수인지 확인
+  # @param user_role [Symbol, String] 사용자 역할
+  # @return [Boolean] 교수 여부
+  def instructor?(user_role = @user_role)
+    return false if user_role.nil?
+    
+    # 심볼 또는 문자열 모두 처리 (대소문자 무시)
+    role_str = user_role.to_s.downcase.strip
+    role_str == 'instructor' || user_role == :instructor
+  end
+  
+  # 사용자가 학생인지 확인
+  # @param user_role [Symbol, String] 사용자 역할
+  # @return [Boolean] 학생 여부
+  def student?(user_role = @user_role)
+    return false if user_role.nil?
+    
+    # 심볼 또는 문자열 모두 처리 (대소문자 무시)
+    role_str = user_role.to_s.downcase.strip
+    role_str == 'student' || user_role == :student
+  end
+  
+  # Step Navigator용 날짜 포맷팅 (Canvas 형식: YYYY.MM.DD, h:mm A)
+  # @param date_string [String] ISO 8601 날짜 문자열
+  # @return [Array<String>] [날짜, 시간] 배열 (예: ['2026.01.31', '4:15 PM'])
+  def format_date_navigator(date_string)
+    return ['-', '-'] unless date_string.present?
+
+    date = Time.parse(date_string)
+    date_part = date.strftime('%Y.%m.%d')
+    # 12시간 형식 (4:15 PM) - Windows 호환성을 위해 gsub 사용
+    time_part = date.strftime('%l:%M %p').strip.gsub(/^0/, '')
+    [date_part, time_part]
+  rescue ArgumentError => e
+    Rails.logger.error "날짜 포맷팅 실패: #{e.message}"
+    ['-', '-']
+  end
+
   # 프로젝트 목록에서 최대 STEP 수 계산
   # @param projects [Array<Hash>] 프로젝트 목록
   # @return [Integer] 최대 STEP 수

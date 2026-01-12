@@ -23,29 +23,50 @@ class ProjectsController < ApplicationController
   def index
     @project_service = ProjectService.new(@lti_context, @lti_claims, @canvas_api)
     @projects_by_category = @project_service.projects_with_statistics
-    @user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
+    # Canvas API로 해당 코스에서의 실제 사용자 역할 확인
+    @user_role = determine_course_user_role
+    
+    # 코스 정보 (헤더 표시용)
+    @course_title = @lti_context.context_title
   end
   
   # Project 상세
   def show
     @project_service = ProjectService.new(@lti_context, @lti_claims, @canvas_api)
     @project_data = @project_service.project_with_assignments(@project)
-    @user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
-    @canvas_url = LtiPlatform.find_by(iss: @lti_claims[:iss] || @lti_claims["iss"])&.actual_canvas_url
+    
+    # Canvas API로 해당 코스에서의 실제 사용자 역할 확인
+    @user_role = determine_course_user_role
+    # iss와 client_id로 정확한 Platform 조회 (같은 iss에서 여러 client_id 가능)
+    issuer = @lti_claims[:iss] || @lti_claims["iss"]
+    audience = @lti_claims[:audience] || @lti_claims["audience"] || @lti_claims[:aud] || @lti_claims["aud"]
+    @canvas_url = LtiPlatform.find_by(iss: issuer, client_id: audience)&.actual_canvas_url
+    
+    # 그룹 정보 조회 (교수용 그룹 선택 드롭다운용)
+    course_id = @lti_context.canvas_course_id
+    if course_id.present? && @project_data[:assignments].present?
+      first_assignment = @project_data[:assignments].first
+      if first_assignment && first_assignment['group_category_id'].present?
+        begin
+          group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
+          groups_response = group_categories_client.groups(first_assignment['group_category_id'])
+          @groups = groups_response.is_a?(Array) ? groups_response : (groups_response['data'] || [])
+        rescue => e
+          Rails.logger.error "그룹 조회 실패: #{e.message}"
+          @groups = []
+        end
+      else
+        @groups = []
+      end
+    else
+      @groups = []
+    end
   end
   
   # Project 생성 폼
   def new
     @project = Project.new
-    course_id = @lti_context.canvas_course_id
-    
-    # Assignment Groups 조회
-    assignment_groups_client = CanvasApi::AssignmentGroupsClient.new(@canvas_api)
-    @assignment_groups = assignment_groups_client.list(course_id) rescue []
-    
-    # Group Categories 조회
-    group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
-    @group_categories = group_categories_client.list(course_id) rescue []
+    set_new_form_variables
   end
   
   # Project 생성
@@ -61,10 +82,24 @@ class ProjectsController < ApplicationController
     redirect_to project_path(@project), notice: '프로젝트가 생성되었습니다.'
   rescue ProjectBuilder::ProjectCreationError => e
     flash[:error] = e.message
+    # new 액션에서 필요한 변수들 설정 (에러 발생 시 폼 재표시를 위해)
+    begin
+      @project ||= Project.new(project_params.except(:assignments))
+    rescue
+      @project ||= Project.new
+    end
+    set_new_form_variables
     render :new, status: :unprocessable_entity
   rescue ActionController::ParameterMissing => e
     Rails.logger.error "파라미터 에러: #{e.message}, params: #{params.inspect}"
     flash[:error] = "프로젝트 이름을 입력해주세요."
+    # new 액션에서 필요한 변수들 설정 (에러 발생 시 폼 재표시를 위해)
+    begin
+      @project ||= Project.new(project_params.except(:assignments))
+    rescue
+      @project ||= Project.new
+    end
+    set_new_form_variables
     render :new, status: :unprocessable_entity
   end
   
@@ -110,25 +145,41 @@ class ProjectsController < ApplicationController
   end
   
   private
+
+  # new 액션과 create 액션의 rescue 블록에서 공통으로 사용하는 변수 설정
+  def set_new_form_variables
+    course_id = @lti_context.canvas_course_id
+    
+    # Assignment Groups 조회
+    assignment_groups_client = CanvasApi::AssignmentGroupsClient.new(@canvas_api)
+    @assignment_groups = assignment_groups_client.list(course_id) rescue []
+    
+    # Group Categories 조회
+    group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
+    @group_categories = group_categories_client.list(course_id) rescue []
+  end
+  
+  # Canvas API로 코스 정보 조회 (옵션 2)
+  def fetch_course_title_from_api
+    return @lti_context.context_title unless @lti_context.canvas_course_id.present?
+    
+    begin
+      courses_client = CanvasApi::CoursesClient.new(@canvas_api)
+      course = courses_client.find(@lti_context.canvas_course_id)
+      course['name'] || @lti_context.context_title
+    rescue CanvasApi::Client::ApiError => e
+      Rails.logger.error "Canvas Course 조회 실패: #{e.message}"
+      @lti_context.context_title # fallback
+    end
+  end
   
   # LTI Claims 로드 (세션에서)
   def load_lti_claims
     @lti_claims = session[:lti_claims]
     
-    # 디버깅: 세션 상태 확인
-    Rails.logger.info "=== ProjectsController 세션 확인 ==="
-    Rails.logger.info "Session ID: #{session.id}"
-    Rails.logger.info "LTI Claims 존재: #{@lti_claims.present?}"
-    Rails.logger.info "LTI Claims: #{@lti_claims.inspect}" if @lti_claims.present?
-    Rails.logger.info "세션 만료 시간: #{session[:lti_claims_expires_at]}"
-    Rails.logger.info "현재 시간: #{Time.current}"
-    Rails.logger.info "================================"
-    
     # 세션 만료 확인
     if @lti_claims.blank? || session[:lti_claims_expires_at] < Time.current
-      Rails.logger.error "세션이 없거나 만료됨!"
       flash[:error] = '세션이 만료되었습니다. Canvas에서 LTI Tool을 다시 실행해주세요.'
-      # 세션이 없으면 Admin 페이지로 리다이렉트 (설정 확인용)
       redirect_to admin_lti_platforms_path
       return
     end
@@ -146,10 +197,12 @@ class ProjectsController < ApplicationController
   def set_canvas_api_client
     # 세션에 저장된 해시는 문자열 키로 변환될 수 있으므로 둘 다 확인
     issuer = @lti_claims[:issuer] || @lti_claims["issuer"] || @lti_claims[:iss] || @lti_claims["iss"]
-    lti_platform = LtiPlatform.find_by(iss: issuer)
+    # JWT의 aud (client_id)를 사용하여 정확한 Platform 조회
+    audience = @lti_claims[:audience] || @lti_claims["audience"] || @lti_claims[:aud] || @lti_claims["aud"]
+    lti_platform = LtiPlatform.find_by(iss: issuer, client_id: audience)
     
     unless lti_platform
-      flash[:error] = 'Canvas Platform 정보를 찾을 수 없습니다. Admin에서 Platform을 등록해주세요.'
+      flash[:error] = "Canvas Platform 정보를 찾을 수 없습니다 (iss: #{issuer}, client_id: #{audience}). Admin에서 Platform을 등록해주세요."
       redirect_to admin_lti_platforms_path
       return
     end
@@ -175,6 +228,42 @@ class ProjectsController < ApplicationController
     redirect_to projects_path
   end
   
+  # 해당 코스에서의 실제 사용자 역할 확인 (Canvas API 사용)
+  # @return [Symbol] :instructor 또는 :student
+  def determine_course_user_role
+    course_id = @lti_context.canvas_course_id
+    canvas_user_id = @lti_claims[:canvas_user_id] || @lti_claims["canvas_user_id"]
+    
+    return :student unless course_id.present? && canvas_user_id.present?
+    
+    begin
+      enrollments_client = CanvasApi::EnrollmentsClient.new(@canvas_api)
+      enrollments = enrollments_client.find_user_enrollments(course_id, canvas_user_id)
+      
+      # 활성화된 enrollment만 확인
+      active_enrollments = enrollments.select { |e| e['enrollment_state'] == 'active' }
+      
+      # Instructor 역할 확인 (TeacherEnrollment, DesignerEnrollment, TaEnrollment 등)
+      instructor_types = ['TeacherEnrollment', 'DesignerEnrollment', 'TaEnrollment']
+      
+      if active_enrollments.any? { |e| instructor_types.include?(e['type']) }
+        :instructor
+      else
+        :student
+      end
+    rescue => e
+      Rails.logger.error "Canvas API로 역할 확인 실패: #{e.message}"
+      # API 실패 시 LTI Claims의 user_role 사용 (fallback)
+      raw_user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
+      case raw_user_role.to_s.downcase
+      when 'instructor', 'teacher', 'administrator'
+        :instructor
+      else
+        :student
+      end
+    end
+  end
+  
   # Project 파라미터
   def project_params
     if params[:project].present?
@@ -193,6 +282,8 @@ class ProjectsController < ApplicationController
           :lock_at,
           :points_possible,
           :submission_types,
+          :submission_type_select,  # UI 필드 (사용 후 제거됨)
+          :attempts_type,  # UI 필드 (사용 후 제거됨)
           :allowed_extensions,
           :allowed_attempts,
           :grading_type,

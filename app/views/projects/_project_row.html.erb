@@ -1,31 +1,38 @@
 <tr>
   <!-- Project Name Column -->
   <td class="project-name-cell">
-    <div>
-      <%= link_to project[:name], project_path(project[:id]) %>
-    </div>
-    <div class="project-date-info">
-      Start - - Due 
-      <% if project[:assignments].present? && project[:assignments].any? %>
-        <% first_due = project[:assignments].find { |a| a['due_at'].present? } %>
-        <% if first_due %>
-          <%= format_date(first_due['due_at']) %>
-        <% else %>
-          -
-        <% end %>
-      <% else %>
-        -
-      <% end %>
-      / End -
-    </div>
-    <div class="project-actions">
-      <%= link_to '보기', project_path(project[:id]), class: 'btn-action btn-view' %>
-      <%= link_to '수정', edit_project_path(project[:id]), class: 'btn-action btn-edit' %>
-      <%= button_to '삭제', project_path(project[:id]), 
-          method: :delete, 
-          data: { confirm: '정말 삭제하시겠습니까?', turbo: false }, 
-          class: 'btn-action btn-delete',
-          form: { style: 'display: inline;' } %>
+    <div class="project-name-row">
+      <div class="project-name-content">
+        <%= link_to project[:name], project_path(project[:id]), class: 'project-name-link' %>
+        <div class="project-date-info">
+          Start - - Due 
+          <% if project[:assignments].present? && project[:assignments].any? %>
+            <% first_due = project[:assignments].find { |a| a['due_at'].present? } %>
+            <% if first_due %>
+              <%= format_date(first_due['due_at']) %>
+            <% else %>
+              -
+            <% end %>
+          <% else %>
+            -
+          <% end %>
+          / End -
+        </div>
+      </div>
+      <!-- More Actions Menu (드롭다운) -->
+      <div class="project-actions-menu">
+        <button type="button" class="btn-more" onclick="toggleProjectMenu(<%= project[:id] %>)">
+          <span class="more-icon">⋮</span>
+        </button>
+        <div id="project-menu-<%= project[:id] %>" class="dropdown-menu">
+          <%= link_to '수정', edit_project_path(project[:id]), class: 'dropdown-item' %>
+          <%= button_to '삭제', project_path(project[:id]), 
+              method: :delete, 
+              data: { confirm: '정말 삭제하시겠습니까?', turbo: false }, 
+              class: 'dropdown-item-danger',
+              form: { class: 'dropdown-item-form', style: 'margin: 0; padding: 0; display: block;' } %>
+        </div>
+      </div>
     </div>
   </td>
   
@@ -36,10 +43,6 @@
       <% if assignment %>
         <% step_status = get_step_status(assignment) %>
         <div class="step-content">
-          <div class="step-icons">
-            <span class="step-icon">💬</span>
-            <span class="step-icon">⋮</span>
-          </div>
           <% if assignment['due_at'].present? %>
             <div class="step-due-date">
               Due <%= format_date(assignment['due_at']) %>
@@ -85,3 +88,31 @@
     </td>
   <% end %>
 </tr>
+
+<script>
+// 드롭다운 메뉴 토글
+function toggleProjectMenu(projectId) {
+  const menu = document.getElementById('project-menu-' + projectId);
+  const isVisible = menu.style.display === 'block';
+  
+  // 모든 다른 메뉴 닫기
+  document.querySelectorAll('.dropdown-menu').forEach(m => {
+    m.style.display = 'none';
+  });
+  
+  // 현재 메뉴 토글
+  menu.style.display = isVisible ? 'none' : 'block';
+  
+  // 메뉴 외부 클릭 시 닫기
+  if (!isVisible) {
+    setTimeout(() => {
+      document.addEventListener('click', function closeMenu(e) {
+        if (!menu.contains(e.target) && !e.target.closest('.btn-more')) {
+          menu.style.display = 'none';
+          document.removeEventListener('click', closeMenu);
+        }
+      });
+    }, 0);
+  }
+}
+</script>

@@ -47,7 +47,7 @@
             <div class="form-group" style="margin-top: 1rem;">
               <label for="assignment_group_category_id">Group Set</label>
               <%= form.select :group_category_id, 
-                  options_for_select(@group_categories.map { |gc| [gc['name'] || gc[:name], gc['id'] || gc[:id]] }, @project.group_category_id),
+                  options_for_select(@group_categories.map { |gc| [gc['name'] || gc[:name], gc['id'] || gc[:id]] }, nil),
                   { include_blank: 'Select a group category' },
                   { class: 'form-select', id: 'assignment_group_category_id' } %>
             </div>
@@ -65,24 +65,9 @@
         </div>
         <div class="form-column-right">
           <%= form.select :assignment_group_id, 
-              options_for_select(@assignment_groups.map { |ag| [ag['name'] || ag[:name], ag['id'] || ag[:id]] }, @project.assignment_group_id),
+              options_for_select(@assignment_groups.map { |ag| [ag['name'] || ag[:name], ag['id'] || ag[:id]] }, nil),
               { include_blank: 'Select an assignment group' },
               { class: 'form-select', id: 'assignment_group_id' } %>
-        </div>
-      </div>
-      
-      <!-- Create Slack Channel -->
-      <div class="form-row">
-        <div class="form-column-left">
-          <label>Create Slack Channel</label>
-        </div>
-        <div class="form-column-right">
-          <div class="border-box">
-            <label class="checkbox-label">
-              <%= check_box_tag 'allow_slack_channel_creation', '1', false, id: 'allow-slack-channel-creation' %>
-              <span>Agree to create a Slack channel for this project</span>
-            </label>
-          </div>
         </div>
       </div>
       
@@ -509,8 +494,10 @@
           unlock_at: unlockAt,
           lock_at: lockAt,
           points_possible: assignment.points_possible || 0,
-          submission_types: assignment.submission_types || 'online_upload',
+          grading_type: assignment.grading_type || 'points',
+          submission_types: assignment.submission_types || ['online_upload'],
           allowed_extensions: assignment.allowed_extensions || [],
+          allowed_attempts: assignment.allowed_attempts || null,
           peer_reviews: assignment.peer_reviews || false
         });
         
@@ -556,8 +543,10 @@
       unlock_at: '',
       lock_at: '',
       points_possible: 0,
-      submission_types: 'online_upload',
+      grading_type: 'points',
+      submission_types: ['online_upload'],
       allowed_extensions: [],
+      allowed_attempts: null,
       peer_reviews: false
     });
     
@@ -621,6 +610,109 @@
       
       <div class="form-row">
         <div class="form-column-left">
+          <label>Display Grade as</label>
+        </div>
+        <div class="form-column-right">
+          <select name="project[assignments][${index}][grading_type]" 
+                  class="form-select" 
+                  id="grading-type-${index}">
+            <option value="points" ${assignment && (assignment.grading_type === 'points' || !assignment.grading_type) ? 'selected' : ''}>배점</option>
+            <option value="pass_fail" ${assignment && assignment.grading_type === 'pass_fail' ? 'selected' : ''}>완료</option>
+            <option value="percent" ${assignment && assignment.grading_type === 'percent' ? 'selected' : ''}>백분율</option>
+            <option value="letter_grade" ${assignment && assignment.grading_type === 'letter_grade' ? 'selected' : ''}>등급</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-column-left">
+          <label>Submission Type</label>
+        </div>
+        <div class="form-column-right">
+          <select name="project[assignments][${index}][submission_type_select]" 
+                  class="form-select" 
+                  id="submission-type-select-${index}">
+            <option value="online" ${assignment && assignment.submission_types && assignment.submission_types.length > 0 ? 'selected' : ''}>Online</option>
+            <option value="none" ${assignment && (!assignment.submission_types || assignment.submission_types.length === 0) ? 'selected' : ''}>No Submission</option>
+          </select>
+          
+          <!-- Online Entry Options (동적 표시) -->
+          <div id="online-options-${index}" class="border-box" style="margin-top: 1rem; ${assignment && assignment.submission_types && assignment.submission_types.length > 0 ? '' : 'display: none;'}">
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" 
+                       name="project[assignments][${index}][submission_types][]" 
+                       value="online_url" 
+                       id="online-url-${index}"
+                       class="submission-type-checkbox"
+                       ${assignment && assignment.submission_types && assignment.submission_types.includes('online_url') ? 'checked' : ''} />
+                <span>Website URL</span>
+              </label>
+            </div>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" 
+                       name="project[assignments][${index}][submission_types][]" 
+                       value="online_upload" 
+                       id="online-upload-${index}"
+                       class="submission-type-checkbox"
+                       ${assignment && assignment.submission_types && assignment.submission_types.includes('online_upload') ? 'checked' : ''} />
+                <span>File Uploads</span>
+              </label>
+            </div>
+            <div id="restrict-file-types-${index}" class="checkbox-group" style="padding-left: 1.5rem; ${assignment && assignment.submission_types && assignment.submission_types.includes('online_upload') ? '' : 'display: none;'}">
+              <label class="checkbox-label">
+                <input type="checkbox" 
+                       name="project[assignments][${index}][restrict_file_types]" 
+                       value="1" 
+                       id="restrict-file-types-checkbox-${index}" />
+                <span>Restrict Upload File Types</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-column-left">
+          <label>Submission Attempts</label>
+        </div>
+        <div class="form-column-right">
+          <select name="project[assignments][${index}][attempts_type]" 
+                  class="form-select" 
+                  id="attempts-type-${index}">
+            <option value="unlimited" ${!assignment || !assignment.allowed_attempts ? 'selected' : ''}>Unlimited</option>
+            <option value="limited" ${assignment && assignment.allowed_attempts ? 'selected' : ''}>Limited</option>
+          </select>
+          <input type="number" 
+                 name="project[assignments][${index}][allowed_attempts]" 
+                 class="input-full" 
+                 min="1" 
+                 id="allowed-attempts-${index}"
+                 value="${assignment && assignment.allowed_attempts ? assignment.allowed_attempts : ''}"
+                 style="${assignment && assignment.allowed_attempts ? 'display: block;' : 'display: none;'} margin-top: 0.5rem;"
+                 placeholder="Number of attempts" />
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-column-left">
+          <label>Peer Reviews</label>
+        </div>
+        <div class="form-column-right">
+          <label class="checkbox-label">
+            <input type="checkbox" 
+                   name="project[assignments][${index}][peer_reviews]" 
+                   value="1" 
+                   id="peer-reviews-${index}"
+                   ${assignment && assignment.peer_reviews ? 'checked' : ''} />
+            <span>Require Peer Reviews</span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-column-left">
           <label>Assign</label>
         </div>
         <div class="form-column-right">
@@ -665,6 +757,56 @@
         renderStepDropdown();
       });
     });
+    
+    // Submission Type 동적 UI 처리
+    const submissionTypeSelect = stepForm.querySelector(`#submission-type-select-${index}`);
+    const onlineOptions = stepForm.querySelector(`#online-options-${index}`);
+    const fileUploadsCheckbox = stepForm.querySelector(`#online-upload-${index}`);
+    const restrictFileTypes = stepForm.querySelector(`#restrict-file-types-${index}`);
+    
+    if (submissionTypeSelect) {
+      submissionTypeSelect.addEventListener('change', function() {
+        const isOnline = this.value === 'online';
+        onlineOptions.style.display = isOnline ? 'block' : 'none';
+        
+        if (!isOnline) {
+          // No Submission 선택 시 모든 체크박스 해제
+          stepForm.querySelectorAll('.submission-type-checkbox').forEach(cb => cb.checked = false);
+          restrictFileTypes.style.display = 'none';
+        } else {
+          // Online 선택 시 기본적으로 File Uploads 체크 (체크 안 되어 있을 경우)
+          if (!fileUploadsCheckbox.checked) {
+            fileUploadsCheckbox.checked = true;
+          }
+          restrictFileTypes.style.display = fileUploadsCheckbox.checked ? 'block' : 'none';
+        }
+      });
+    }
+    
+    // File Uploads 체크박스 변경 시 Restrict 옵션 표시/숨김
+    if (fileUploadsCheckbox) {
+      fileUploadsCheckbox.addEventListener('change', function() {
+        restrictFileTypes.style.display = this.checked ? 'block' : 'none';
+      });
+    }
+    
+    // Submission Attempts 동적 UI 처리
+    const attemptsTypeSelect = stepForm.querySelector(`#attempts-type-${index}`);
+    const allowedAttemptsInput = stepForm.querySelector(`#allowed-attempts-${index}`);
+    
+    if (attemptsTypeSelect) {
+      attemptsTypeSelect.addEventListener('change', function() {
+        const isLimited = this.value === 'limited';
+        allowedAttemptsInput.style.display = isLimited ? 'block' : 'none';
+        if (isLimited) {
+          allowedAttemptsInput.required = true;
+          allowedAttemptsInput.value = allowedAttemptsInput.value || '1';
+        } else {
+          allowedAttemptsInput.required = false;
+          allowedAttemptsInput.value = '';
+        }
+      });
+    }
   }
   
   function updateStepDate(index) {

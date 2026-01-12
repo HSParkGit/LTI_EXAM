@@ -73,10 +73,13 @@ module Lti
       
       # LtiContext 생성 또는 조회
       issuer = @lti_claims[:issuer] || @lti_claims["issuer"] || @lti_claims[:iss] || @lti_claims["iss"]
-      lti_platform = LtiPlatform.find_by(iss: issuer)
+      # JWT의 aud (client_id)를 사용하여 정확한 Platform 조회
+      # 같은 Canvas 인스턴스(iss)에서 여러 Developer Key를 사용할 수 있음
+      audience = @lti_claims[:audience] || @lti_claims["audience"] || @lti_claims[:aud] || @lti_claims["aud"]
+      lti_platform = LtiPlatform.find_by(iss: issuer, client_id: audience)
       unless lti_platform
-        Rails.logger.error "LTI Platform을 찾을 수 없습니다: #{issuer}"
-        render json: { error: "LTI Platform을 찾을 수 없습니다" }, status: :bad_request
+        Rails.logger.error "LTI Platform을 찾을 수 없습니다: iss=#{issuer}, client_id=#{audience}"
+        render json: { error: "LTI Platform을 찾을 수 없습니다 (iss: #{issuer}, client_id: #{audience})" }, status: :bad_request
         return
       end
       

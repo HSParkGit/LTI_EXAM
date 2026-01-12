@@ -27,7 +27,12 @@ module CanvasApi
     # 예시:
     #   list(course_id, assignment_id, include: ['submission_history', 'user'])
     def list(course_id, assignment_id, params = {})
-      @client.get("/courses/#{course_id}/assignments/#{assignment_id}/submissions", params)
+      # include 파라미터를 쿼리 스트링으로 변환
+      query_params = {}
+      if params[:include].present?
+        query_params[:include] = params[:include].is_a?(Array) ? params[:include] : [params[:include]]
+      end
+      @client.get("/courses/#{course_id}/assignments/#{assignment_id}/submissions", query_params)
     end
 
     # 특정 사용자의 Submission 조회 (학생용)

@@ -44,7 +44,19 @@ class ProjectBuilder
     publish_immediately = project_params[:publish] == 'true' || project_params[:publish] == true
 
     # 여러 Assignment 생성
-    assignments_params = project_params[:assignments] || []
+    # Rails nested attributes는 Hash 형태로 전달됨: {"0"=>{...}, "1"=>{...}}
+    # ActionController::Parameters를 Hash로 변환 후 values로 Array 변환
+    assignments_params_raw = project_params[:assignments] || {}
+    assignments_params = if assignments_params_raw.respond_to?(:to_h)
+      # ActionController::Parameters 또는 Hash인 경우
+      assignments_params_raw.to_h.values
+    elsif assignments_params_raw.is_a?(Array)
+      # 이미 Array인 경우
+      assignments_params_raw
+    else
+      # 그 외의 경우 빈 Array
+      []
+    end
     assignments = assignments_params.filter_map.with_index do |assignment_params, index|
       # 삭제 플래그 확인
       next nil if assignment_params[:_destroy].to_s == 'true'
@@ -107,7 +119,19 @@ class ProjectBuilder
     publish_immediately = project_params[:publish] == 'true' || project_params[:publish] == true
 
     # Assignment 처리
-    assignments_params = project_params[:assignments] || []
+    # Rails nested attributes는 Hash 형태로 전달됨: {"0"=>{...}, "1"=>{...}}
+    # ActionController::Parameters를 Hash로 변환 후 values로 Array 변환
+    assignments_params_raw = project_params[:assignments] || {}
+    assignments_params = if assignments_params_raw.respond_to?(:to_h)
+      # ActionController::Parameters 또는 Hash인 경우
+      assignments_params_raw.to_h.values
+    elsif assignments_params_raw.is_a?(Array)
+      # 이미 Array인 경우
+      assignments_params_raw
+    else
+      # 그 외의 경우 빈 Array
+      []
+    end
     assignments = assignments_params.filter_map.with_index do |assignment_params, index|
       destroy_flag = assignment_params[:_destroy].to_s
 
@@ -223,9 +247,9 @@ class ProjectBuilder
     params = {
       name: assignment_params[:name] || assignment_params[:title],
       description: assignment_params[:description],
-      due_at: assignment_params[:due_at],
-      unlock_at: assignment_params[:unlock_at],
-      lock_at: assignment_params[:lock_at],
+      due_at: format_datetime_for_canvas(assignment_params[:due_at]),
+      unlock_at: format_datetime_for_canvas(assignment_params[:unlock_at]),
+      lock_at: format_datetime_for_canvas(assignment_params[:lock_at]),
       points_possible: assignment_params[:points_possible],
       grading_type: assignment_params[:grading_type] || 'points',
       submission_types: parse_submission_types(assignment_params[:submission_types]),
@@ -249,7 +273,7 @@ class ProjectBuilder
       params[:peer_reviews] = true
       params[:automatic_peer_reviews] = assignment_params[:automatic_peer_reviews] || false
       params[:peer_review_count] = assignment_params[:peer_review_count] if assignment_params[:peer_review_count].present?
-      params[:peer_reviews_due_at] = assignment_params[:peer_reviews_due_at] if assignment_params[:peer_reviews_due_at].present?
+      params[:peer_reviews_due_at] = format_datetime_for_canvas(assignment_params[:peer_reviews_due_at]) if assignment_params[:peer_reviews_due_at].present?
       params[:intra_group_peer_reviews] = assignment_params[:intra_group_peer_reviews] || false
       params[:anonymous_peer_reviews] = assignment_params[:anonymous_peer_reviews] || false
     end
@@ -280,6 +304,31 @@ class ProjectBuilder
     elsif allowed_extensions.is_a?(Array)
       allowed_extensions
     else
+      nil
+    end
+  end
+
+  # Canvas API용 datetime 형식 변환
+  # Canvas API는 ISO 8601 형식의 datetime을 요구함: YYYY-MM-DDTHH:MM:SSZ (초와 UTC 표시자 필수)
+  # 빈 문자열이나 nil은 nil로 반환
+  # @param datetime_value [String, nil] 폼에서 전달된 datetime 값 (예: "2026-01-17T17:51")
+  # @return [String, nil] ISO 8601 형식의 datetime 문자열 (YYYY-MM-DDTHH:MM:SSZ) 또는 nil
+  def format_datetime_for_canvas(datetime_value)
+    return nil if datetime_value.blank?
+    
+    begin
+      # "2026-01-17T17:51" 형식을 파싱 (로컬 타임존으로 해석)
+      parsed_time = DateTime.parse(datetime_value.to_s)
+      
+      # Canvas API는 UTC 형식을 요구하므로 UTC로 변환
+      # 초가 없으면 00으로 설정
+      utc_time = parsed_time.utc
+      
+      # YYYY-MM-DDTHH:MM:SSZ 형식으로 변환 (Canvas API 요구사항)
+      utc_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+    rescue ArgumentError, TypeError => e
+      Rails.logger.warn "Datetime 파싱 실패: #{datetime_value}, 에러: #{e.message}"
+      # 파싱 실패 시 nil 반환
       nil
     end
   end
