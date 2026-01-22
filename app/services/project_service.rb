@@ -23,6 +23,14 @@ class ProjectService
     @canvas_api = canvas_api
     @assignments_client = CanvasApi::AssignmentsClient.new(@canvas_api)
     @submissions_client = CanvasApi::SubmissionsClient.new(@canvas_api)
+
+    # 역할 미리 확인 (매번 확인 안 해도 됨)
+    user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
+    @is_instructor = user_role.to_s.downcase == "instructor"
+    @canvas_user_id = @lti_claims[:canvas_user_id] || @lti_claims["canvas_user_id"]
+
+    # 캐시용 변수
+    @all_assignments_cache = nil
   end
 
   # Project 목록 조회 (기본)
@@ -42,24 +50,32 @@ class ProjectService
       return { current: [], upcoming: [], past: [], unpublished: [] }
     end
 
-    # 모든 프로젝트의 Assignment 정보 조회
+    # 코스의 모든 Assignment를 한 번에 조회 (N+1 방지)
+    all_assignments = fetch_all_assignments(course_id)
+
+    # 모든 프로젝트의 Assignment 정보 조회 (메모리에서 필터링)
     projects_with_assignments = projects.map do |project|
-      assignments = fetch_assignments_with_statistics(project, course_id)
+      # 프로젝트에 속한 assignment만 필터링
+      project_assignments = filter_assignments_for_project(all_assignments, project.assignment_ids)
+
+      # 통계 추가 (교수/학생에 따라 다름)
+      project_assignments.each do |assignment|
+        if @is_instructor
+          add_instructor_statistics(assignment, course_id)
+        else
+          add_student_status(assignment, course_id)
+        end
+      end
 
       {
         id: project.id,
         name: project.name,
-        published: get_published_status(assignments),
-        assignments: assignments
+        published: get_published_status(project_assignments),
+        assignments: project_assignments
       }
     end
 
-    # 프로젝트 분류 (Canvas 로직: 학생은 Unpublished 프로젝트를 볼 수 없음)
-    user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
-    user_role_str = user_role.to_s.downcase
-    is_student = user_role_str != "instructor"
-    
-    classify_projects(projects_with_assignments, is_student: is_student)
+    classify_projects(projects_with_assignments, is_student: !@is_instructor)
   end
 
   # Project 상세 조회 (Assignment 정보 포함)
@@ -88,32 +104,66 @@ class ProjectService
 
   private
 
-  # Project의 Assignment 목록 및 통계 조회
+  # 코스의 모든 Assignment를 한 번에 조회 (캐싱)
+  # @return [Array<Hash>] Assignment 목록
+  def fetch_all_assignments(course_id)
+    return @all_assignments_cache if @all_assignments_cache
+
+    begin
+      @all_assignments_cache = @assignments_client.list(course_id)
+    rescue CanvasApi::Client::ApiError => e
+      Rails.logger.error "Canvas Assignment 목록 조회 실패: #{e.message}"
+      @all_assignments_cache = []
+    end
+
+    @all_assignments_cache
+  end
+
+  # 프로젝트에 속한 Assignment만 필터링
+  # @param all_assignments [Array<Hash>] 전체 Assignment 목록
+  # @param assignment_ids [Array<String>] 프로젝트의 Assignment ID 배열 (문자열)
+  # @return [Array<Hash>] 필터링된 Assignment 목록 (deep copy)
+  def filter_assignments_for_project(all_assignments, assignment_ids)
+    return [] if assignment_ids.empty?
+
+    # assignment_ids 순서 유지하면서 필터링 (deep copy로 원본 보호)
+    # 주의: assignment_ids는 문자열, Canvas API의 id는 정수이므로 to_s로 비교
+    assignment_ids.filter_map do |id|
+      assignment = all_assignments.find { |a| a['id'].to_s == id.to_s }
+      assignment&.deep_dup  # 각 프로젝트별로 통계가 다르게 추가되므로 복사
+    end
+  end
+
+  # Project의 Assignment 목록 및 통계 조회 (단일 프로젝트용)
+  # project_with_assignments에서 사용 (show 페이지)
   def fetch_assignments_with_statistics(project, course_id)
     return [] if project.assignment_ids.empty?
-    
-    project.assignment_ids.map do |assignment_id|
-      begin
-        assignment = @assignments_client.find(course_id, assignment_id)
 
-        # 교수/학생에 따라 다른 통계 추가
-        user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
-        user_role_str = user_role.to_s.downcase
-        if user_role_str == "instructor"
-          add_instructor_statistics(assignment, course_id)
-        else
-          add_student_status(assignment, course_id)
+    # 캐시가 있으면 활용, 없으면 개별 조회
+    if @all_assignments_cache
+      assignments = filter_assignments_for_project(@all_assignments_cache, project.assignment_ids)
+    else
+      # show 페이지에서는 해당 프로젝트의 assignment만 필요하므로 개별 조회
+      assignments = project.assignment_ids.filter_map do |assignment_id|
+        begin
+          @assignments_client.find(course_id, assignment_id)
+        rescue CanvasApi::Client::ApiError => e
+          Rails.logger.error "Canvas Assignment 조회 실패 (ID: #{assignment_id}): #{e.message}"
+          nil
         end
-
-        assignment
-      rescue CanvasApi::Client::ApiError => e
-        Rails.logger.error "Canvas Assignment 조회 실패 (ID: #{assignment_id}): #{e.message}"
-        nil
-      rescue => e
-        Rails.logger.error "예상치 못한 에러 (ID: #{assignment_id}): #{e.class} - #{e.message}"
-        nil
       end
-    end.compact
+    end
+
+    # 통계 추가
+    assignments.each do |assignment|
+      if @is_instructor
+        add_instructor_statistics(assignment, course_id)
+      else
+        add_student_status(assignment, course_id)
+      end
+    end
+
+    assignments
   end
 
   # 교수용: Submission 통계 추가
@@ -150,12 +200,10 @@ class ProjectService
 
   # 학생용: 본인 제출 여부 추가
   def add_student_status(assignment, course_id)
-    canvas_user_id = @lti_claims[:canvas_user_id]
-
-    return assignment unless canvas_user_id.present?
+    return assignment unless @canvas_user_id.present?
 
     begin
-      submission = @submissions_client.find(course_id, assignment['id'], canvas_user_id)
+      submission = @submissions_client.find(course_id, assignment['id'], @canvas_user_id)
       assignment['is_submitted'] = submission['submitted_at'].present?
     rescue CanvasApi::Client::ApiError => e
       Rails.logger.error "Submission 조회 실패: #{e.message}"
@@ -176,7 +224,7 @@ class ProjectService
   # @return [Hash] 분류된 프로젝트 목록
   def classify_projects(projects, is_student: false)
     current_date = Time.current
-    
+
     # 1. Published/Unpublished 분리 (Canvas 로직: published !== false)
     published_projects = projects.select { |p| p[:published] != false }
     unpublished_projects = projects.select { |p| p[:published] == false }
@@ -226,7 +274,9 @@ class ProjectService
   def get_published_status(assignments)
     return false if assignments.empty?
 
-    assignments.first['workflow_state'] == 'published'
+    first_assignment = assignments.first
+    # Canvas API는 workflow_state 또는 published 필드를 사용
+    first_assignment['workflow_state'] == 'published' || first_assignment['published'] == true
   end
 end
 

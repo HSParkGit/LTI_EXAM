@@ -18,6 +18,7 @@ class ProjectsController < ApplicationController
   before_action :set_lti_context
   before_action :set_canvas_api_client
   before_action :set_project, only: [:show, :edit, :update, :destroy]
+  before_action :authorize_instructor!, only: [:new, :create, :edit, :update, :destroy]
   
   # Project 목록
   def index
@@ -38,7 +39,7 @@ class ProjectsController < ApplicationController
     # Canvas API로 해당 코스에서의 실제 사용자 역할 확인
     @user_role = determine_course_user_role
     # iss와 client_id로 정확한 Platform 조회 (같은 iss에서 여러 client_id 가능)
-    issuer = @lti_claims[:iss] || @lti_claims["iss"]
+    issuer = @lti_claims[:issuer] || @lti_claims["issuer"] || @lti_claims[:iss] || @lti_claims["iss"]
     audience = @lti_claims[:audience] || @lti_claims["audience"] || @lti_claims[:aud] || @lti_claims["aud"]
     @canvas_url = LtiPlatform.find_by(iss: issuer, client_id: audience)&.actual_canvas_url
     
@@ -106,20 +107,30 @@ class ProjectsController < ApplicationController
   # Project 수정 폼
   def edit
     course_id = @lti_context.canvas_course_id
-    
+
     # Assignment Groups 조회
     assignment_groups_client = CanvasApi::AssignmentGroupsClient.new(@canvas_api)
     @assignment_groups = assignment_groups_client.list(course_id) rescue []
-    
+
     # Group Categories 조회
     group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
     @group_categories = group_categories_client.list(course_id) rescue []
-    
+
     # 기존 Assignment 정보 조회
     @project_service = ProjectService.new(@lti_context, @lti_claims, @canvas_api)
     @project_data = @project_service.project_with_assignments(@project)
+
+    # 현재 Publish 상태 확인 (첫 번째 Assignment 기준)
+    @is_published = @project_data[:assignments].present? &&
+                    @project_data[:assignments].first['workflow_state'] == 'published'
+
+    # Canvas URL (New Group Set 버튼용)
+    issuer = @lti_claims[:issuer] || @lti_claims["issuer"] || @lti_claims[:iss] || @lti_claims["iss"]
+    audience = @lti_claims[:audience] || @lti_claims["audience"] || @lti_claims[:aud] || @lti_claims["aud"]
+    @canvas_url = LtiPlatform.find_by(iss: issuer, client_id: audience)&.actual_canvas_url
+    @canvas_course_id = course_id
   end
-  
+
   # Project 수정
   def update
     project_builder = ProjectBuilder.new(
@@ -149,14 +160,20 @@ class ProjectsController < ApplicationController
   # new 액션과 create 액션의 rescue 블록에서 공통으로 사용하는 변수 설정
   def set_new_form_variables
     course_id = @lti_context.canvas_course_id
-    
+
     # Assignment Groups 조회
     assignment_groups_client = CanvasApi::AssignmentGroupsClient.new(@canvas_api)
     @assignment_groups = assignment_groups_client.list(course_id) rescue []
-    
+
     # Group Categories 조회
     group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
     @group_categories = group_categories_client.list(course_id) rescue []
+
+    # Canvas URL (New Group Set 버튼용)
+    issuer = @lti_claims[:issuer] || @lti_claims["issuer"] || @lti_claims[:iss] || @lti_claims["iss"]
+    audience = @lti_claims[:audience] || @lti_claims["audience"] || @lti_claims[:aud] || @lti_claims["aud"]
+    @canvas_url = LtiPlatform.find_by(iss: issuer, client_id: audience)&.actual_canvas_url
+    @canvas_course_id = course_id
   end
   
   # Canvas API로 코스 정보 조회 (옵션 2)
@@ -227,41 +244,39 @@ class ProjectsController < ApplicationController
     flash[:error] = '프로젝트를 찾을 수 없습니다.'
     redirect_to projects_path
   end
+
+  # 교수 권한 확인
+  def authorize_instructor!
+    unless determine_course_user_role == :instructor
+      flash[:error] = '교수만 프로젝트를 생성/수정/삭제할 수 있습니다.'
+      redirect_to projects_path
+    end
+  end
   
-  # 해당 코스에서의 실제 사용자 역할 확인 (Canvas API 사용)
+  # 해당 코스에서의 사용자 역할 확인
+  # LTI Claims를 우선 사용하여 불필요한 API 호출 방지
   # @return [Symbol] :instructor 또는 :student
   def determine_course_user_role
-    course_id = @lti_context.canvas_course_id
-    canvas_user_id = @lti_claims[:canvas_user_id] || @lti_claims["canvas_user_id"]
-    
-    return :student unless course_id.present? && canvas_user_id.present?
-    
-    begin
-      enrollments_client = CanvasApi::EnrollmentsClient.new(@canvas_api)
-      enrollments = enrollments_client.find_user_enrollments(course_id, canvas_user_id)
-      
-      # 활성화된 enrollment만 확인
-      active_enrollments = enrollments.select { |e| e['enrollment_state'] == 'active' }
-      
-      # Instructor 역할 확인 (TeacherEnrollment, DesignerEnrollment, TaEnrollment 등)
-      instructor_types = ['TeacherEnrollment', 'DesignerEnrollment', 'TaEnrollment']
-      
-      if active_enrollments.any? { |e| instructor_types.include?(e['type']) }
-        :instructor
-      else
-        :student
-      end
-    rescue => e
-      Rails.logger.error "Canvas API로 역할 확인 실패: #{e.message}"
-      # API 실패 시 LTI Claims의 user_role 사용 (fallback)
-      raw_user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
+    # 1. LTI Claims에서 역할 확인 (API 호출 없이 바로 사용)
+    raw_user_role = @lti_claims[:user_role] || @lti_claims["user_role"]
+
+    if raw_user_role.present?
       case raw_user_role.to_s.downcase
       when 'instructor', 'teacher', 'administrator'
-        :instructor
-      else
-        :student
+        return :instructor
+      when 'student', 'learner'
+        return :student
       end
     end
+
+    # 2. user_roles 배열에서 직접 확인 (LTI 1.3 표준)
+    user_roles = @lti_claims[:user_roles] || @lti_claims["user_roles"] || []
+    if user_roles.any? { |role| role.to_s =~ /Instructor|Teacher|Administrator/i }
+      return :instructor
+    end
+
+    # 3. 기본값: student
+    :student
   end
   
   # Project 파라미터

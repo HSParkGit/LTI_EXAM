@@ -4,7 +4,13 @@
       "WebSearch",
       "Bash(brew upgrade:*)",
       "Bash(git mv:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:canvas.instructure.com)",
+      "Bash(rails runner:*)",
+      "Bash(rails generate:*)",
+      "Bash(rails db:migrate:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

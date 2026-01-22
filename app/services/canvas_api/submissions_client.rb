@@ -47,12 +47,33 @@ module CanvasApi
       @client.get("/courses/#{course_id}/assignments/#{assignment_id}/submissions/#{user_id}")
     end
 
-    # Assignment의 모든 Submission 요약 통계 조회
+    # Assignment의 Submission 요약 통계 조회
+    # Canvas submission_summary API 사용 (효율적)
     # @param course_id [String] Canvas Course ID
     # @param assignment_id [String] Canvas Assignment ID
     # @return [Hash] 통계 정보
     #   { submitted_count, unsubmitted_count, graded_count, grading_required }
     def statistics(course_id, assignment_id)
+      # Canvas submission_summary API 사용
+      # 응답: { "graded": 5, "ungraded": 10, "not_submitted": 42 }
+      summary = @client.get("/courses/#{course_id}/assignments/#{assignment_id}/submission_summary")
+
+      {
+        submitted_count: (summary['graded'] || 0) + (summary['ungraded'] || 0),
+        unsubmitted_count: summary['not_submitted'] || 0,
+        graded_count: summary['graded'] || 0,
+        grading_required: summary['ungraded'] || 0
+      }
+    rescue CanvasApi::Client::ApiError => e
+      # API 실패 시 기존 방식으로 fallback (하위 호환)
+      Rails.logger.warn "submission_summary API 실패, fallback 사용: #{e.message}"
+      statistics_fallback(course_id, assignment_id)
+    end
+
+    private
+
+    # submission_summary API 실패 시 fallback
+    def statistics_fallback(course_id, assignment_id)
       submissions = list(course_id, assignment_id)
 
       {

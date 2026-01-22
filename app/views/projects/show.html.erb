@@ -114,6 +114,14 @@
                   <p class="step-description-empty">No description provided.</p>
                 <% end %>
               </div>
+              <% if instructor?(@user_role) %>
+                <div class="step-edit-in-canvas" style="margin-top: 8px;">
+                  <button type="button" class="btn-secondary btn-sm"
+                          onclick="window.open('<%= @canvas_url %>/courses/<%= @lti_context.canvas_course_id %>/assignments/<%= assignment['id'] %>/edit', '_blank')">
+                    Edit in Canvas
+                  </button>
+                </div>
+              <% end %>
             </div>
             
             <!-- Step 상세 정보 (Canvas 스타일) -->
@@ -1167,6 +1175,22 @@
     background-color: #f8d7da;
     color: #842029;
     border: 1px solid #f5c2c7;
+  }
+
+  /* Edit in Canvas 버튼 */
+  .step-edit-in-canvas .btn-secondary {
+    background-color: #f5f5f5;
+    color: #2d3b45;
+    border: 1px solid #c7cdd1;
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .step-edit-in-canvas .btn-secondary:hover {
+    background-color: #e6e6e6;
   }
 </style>
 

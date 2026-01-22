@@ -19,20 +19,22 @@
           / End -
         </div>
       </div>
-      <!-- More Actions Menu (드롭다운) -->
-      <div class="project-actions-menu">
-        <button type="button" class="btn-more" onclick="toggleProjectMenu(<%= project[:id] %>)">
-          <span class="more-icon">⋮</span>
-        </button>
-        <div id="project-menu-<%= project[:id] %>" class="dropdown-menu">
-          <%= link_to '수정', edit_project_path(project[:id]), class: 'dropdown-item' %>
-          <%= button_to '삭제', project_path(project[:id]), 
-              method: :delete, 
-              data: { confirm: '정말 삭제하시겠습니까?', turbo: false }, 
-              class: 'dropdown-item-danger',
-              form: { class: 'dropdown-item-form', style: 'margin: 0; padding: 0; display: block;' } %>
+      <!-- More Actions Menu (드롭다운) - Instructor만 표시 -->
+      <% if @user_role == :instructor %>
+        <div class="project-actions-menu">
+          <button type="button" class="btn-more" onclick="toggleProjectMenu(<%= project[:id] %>)">
+            <span class="more-icon">⋮</span>
+          </button>
+          <div id="project-menu-<%= project[:id] %>" class="dropdown-menu">
+            <%= link_to '수정', edit_project_path(project[:id]), class: 'dropdown-item' %>
+            <%= button_to '삭제', project_path(project[:id]),
+                method: :delete,
+                data: { confirm: '정말 삭제하시겠습니까?', turbo: false },
+                class: 'dropdown-item-danger',
+                form: { class: 'dropdown-item-form', style: 'margin: 0; padding: 0; display: block;' } %>
+          </div>
         </div>
-      </div>
+      <% end %>
     </div>
   </td>
   

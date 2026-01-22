@@ -116,7 +116,9 @@ class ProjectBuilder
     assignment_group_id = project_params[:assignment_group_id]
     group_category_id = project_params[:group_category_id]
     grade_group_students_individually = project_params[:grade_group_students_individually] || false
-    publish_immediately = project_params[:publish] == 'true' || project_params[:publish] == true
+    publish_action = project_params[:publish].to_s
+    publish_immediately = publish_action == 'true'
+    unpublish_immediately = publish_action == 'unpublish'
 
     # Assignment 처리
     # Rails nested attributes는 Hash 형태로 전달됨: {"0"=>{...}, "1"=>{...}}
@@ -164,6 +166,11 @@ class ProjectBuilder
       # Publish 옵션
       if publish_immediately && assignment['workflow_state'] != 'published'
         publish_assignment(assignment['id'])
+      end
+
+      # Unpublish 옵션
+      if unpublish_immediately && assignment['workflow_state'] == 'published'
+        unpublish_assignment(assignment['id'])
       end
 
       assignment
@@ -239,22 +246,27 @@ class ProjectBuilder
   # Assignment Publish
   def publish_assignment(assignment_id)
     course_id = @lti_context.canvas_course_id
-    @assignments_client.update(course_id, assignment_id, { assignment: { workflow_state: 'published' } })
+    @assignments_client.update(course_id, assignment_id, { assignment: { published: true } })
+  end
+
+  # Assignment Unpublish
+  def unpublish_assignment(assignment_id)
+    course_id = @lti_context.canvas_course_id
+    @assignments_client.update(course_id, assignment_id, { assignment: { published: false } })
   end
 
   # Assignment 파라미터 빌드
+  # 기본값: 0점, 내일 마감, 파일 업로드
   def build_assignment_params(assignment_params, assignment_group_id:, group_category_id:, grade_group_students_individually:, position:)
+    # 기본 마감일: 내일 23:59
+    default_due_at = (Time.current.end_of_day + 1.day).strftime('%Y-%m-%dT%H:%M:%SZ')
+
     params = {
       name: assignment_params[:name] || assignment_params[:title],
-      description: assignment_params[:description],
-      due_at: format_datetime_for_canvas(assignment_params[:due_at]),
-      unlock_at: format_datetime_for_canvas(assignment_params[:unlock_at]),
-      lock_at: format_datetime_for_canvas(assignment_params[:lock_at]),
-      points_possible: assignment_params[:points_possible],
-      grading_type: assignment_params[:grading_type] || 'points',
-      submission_types: parse_submission_types(assignment_params[:submission_types]),
-      allowed_extensions: parse_allowed_extensions(assignment_params[:allowed_extensions]),
-      allowed_attempts: assignment_params[:allowed_attempts],
+      due_at: format_datetime_for_canvas(assignment_params[:due_at]) || default_due_at,
+      points_possible: assignment_params[:points_possible] || 0,
+      grading_type: 'points',
+      submission_types: ['online_upload'],
       position: position,
       workflow_state: 'unpublished'
     }
@@ -266,16 +278,6 @@ class ProjectBuilder
     if group_category_id.present?
       params[:group_category_id] = group_category_id
       params[:grade_group_students_individually] = grade_group_students_individually
-    end
-
-    # Peer Review (체크박스로 선택)
-    if assignment_params[:peer_reviews].to_s == 'true' || assignment_params[:peer_reviews] == true
-      params[:peer_reviews] = true
-      params[:automatic_peer_reviews] = assignment_params[:automatic_peer_reviews] || false
-      params[:peer_review_count] = assignment_params[:peer_review_count] if assignment_params[:peer_review_count].present?
-      params[:peer_reviews_due_at] = format_datetime_for_canvas(assignment_params[:peer_reviews_due_at]) if assignment_params[:peer_reviews_due_at].present?
-      params[:intra_group_peer_reviews] = assignment_params[:intra_group_peer_reviews] || false
-      params[:anonymous_peer_reviews] = assignment_params[:anonymous_peer_reviews] || false
     end
 
     # nil 값 제거

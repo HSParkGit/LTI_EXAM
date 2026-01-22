@@ -6,7 +6,9 @@
         <p class="course-name"><%= @course_title %></p>
       <% end %>
     </div>
-    <%= link_to '+ Create', new_project_path, class: 'btn-create' %>
+    <% if @user_role == :instructor %>
+      <%= link_to '+ Create', new_project_path, class: 'btn-create' %>
+    <% end %>
   </div>
   
   <% if flash[:notice] %>
@@ -112,7 +114,9 @@
     <div class="empty-state">
       <div class="empty-state-icon">📋</div>
       <p>프로젝트가 없습니다.</p>
-      <%= link_to '새 프로젝트를 생성', new_project_path, class: 'btn-create' %>해보세요.
+      <% if @user_role == :instructor %>
+        <%= link_to '새 프로젝트를 생성', new_project_path, class: 'btn-create' %>해보세요.
+      <% end %>
     </div>
   <% end %>
 </div>
