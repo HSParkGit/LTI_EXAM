@@ -212,6 +212,7 @@ class ProjectBuilder
   end
 
   # Canvas Assignment 수정
+  # 주의: update 시에는 명시적으로 전달된 필드만 업데이트 (기존 값 유지)
   def update_assignment(assignment_params, assignment_group_id: nil, group_category_id: nil, grade_group_students_individually: false, position: 1)
     course_id = @lti_context.canvas_course_id
     assignment_id = assignment_params[:id]
@@ -220,8 +221,8 @@ class ProjectBuilder
       raise ProjectCreationError, "Canvas Course ID 또는 Assignment ID를 찾을 수 없습니다."
     end
 
-    # Assignment 파라미터 빌드
-    canvas_params = build_assignment_params(
+    # Update용 파라미터 빌드 (명시적으로 전달된 필드만 포함)
+    canvas_params = build_update_assignment_params(
       assignment_params,
       assignment_group_id: assignment_group_id,
       group_category_id: group_category_id,
@@ -255,7 +256,7 @@ class ProjectBuilder
     @assignments_client.update(course_id, assignment_id, { assignment: { published: false } })
   end
 
-  # Assignment 파라미터 빌드
+  # Assignment 파라미터 빌드 (생성용)
   # 기본값: 0점, 내일 마감, 파일 업로드
   def build_assignment_params(assignment_params, assignment_group_id:, group_category_id:, grade_group_students_individually:, position:)
     # 기본 마감일: 내일 23:59
@@ -272,6 +273,31 @@ class ProjectBuilder
     }
 
     # Assignment Group
+    params[:assignment_group_id] = assignment_group_id if assignment_group_id.present?
+
+    # Group Category (그룹 과제)
+    if group_category_id.present?
+      params[:group_category_id] = group_category_id
+      params[:grade_group_students_individually] = grade_group_students_individually
+    end
+
+    # nil 값 제거
+    params.compact
+  end
+
+  # Assignment 파라미터 빌드 (수정용)
+  # 명시적으로 전달된 필드만 포함 (기존 값 유지를 위해 기본값 설정 안 함)
+  def build_update_assignment_params(assignment_params, assignment_group_id:, group_category_id:, grade_group_students_individually:, position:)
+    params = {}
+
+    # 이름이 전달된 경우만 업데이트
+    name = assignment_params[:name] || assignment_params[:title]
+    params[:name] = name if name.present?
+
+    # 위치
+    params[:position] = position
+
+    # Assignment Group (명시적으로 전달된 경우)
     params[:assignment_group_id] = assignment_group_id if assignment_group_id.present?
 
     # Group Category (그룹 과제)

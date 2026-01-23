@@ -53,9 +53,9 @@
                   when 'upcoming' then '#9CA3AF'
                   else '#1F2937'
                   end %>
-              <div class="step-navigator-item" 
+              <div class="step-navigator-item <%= index == 0 ? 'active' : '' %>"
                    data-step-index="<%= index %>"
-                   onclick="scrollToStep(<%= index %>)">
+                   onclick="switchToStep(<%= index %>)">
                 <div class="step-navigator-title-text" style="color: <%= text_color %>">
                   Step <%= index + 1 %> <%= assignment['name'] || 'Untitled Assignment' %>
                 </div>
@@ -76,12 +76,12 @@
     </div>
   <% end %>
   
-  <!-- STEP 목록 -->
+  <!-- STEP 목록 (탭 방식: 한 번에 하나의 스텝만 표시) -->
   <% if @project_data[:assignments].present? && @project_data[:assignments].any? %>
     <div class="steps-container">
       <% @project_data[:assignments].each_with_index do |assignment, index| %>
         <% step_status = get_step_status(assignment) %>
-        <div class="step-card step-<%= step_status %>" id="step-<%= index %>">
+        <div class="step-card step-<%= step_status %>" id="step-<%= index %>" style="<%= index == 0 ? '' : 'display: none;' %>">
           <!-- Step Header (Canvas 스타일) -->
           <div class="step-header-canvas">
             <h1 class="step-title-canvas">
@@ -190,58 +190,99 @@
               </div>
               
               <!-- Group Members 통계 -->
-              <% group_submissions = assignment['group_submissions'] || [] %>
-              <% completed_count = group_submissions.count { |s| s['submission']&.dig('published_score') != nil } %>
-              <div class="evaluations-group-info">
-                <img src="/images/project/icon_evaluations_arrow.svg" alt="" class="evaluations-arrow-icon" />
-                <span class="evaluations-group-text">
-                  Group Members{' '}
-                  <span class="evaluations-complete-count">
-                    <%= completed_count %>/<%= group_submissions.length %> Complete
-                  </span>
-                </span>
-              </div>
-              
-              <!-- 그룹 멤버별 제출 상태 -->
-              <div class="evaluations-list">
-                <% if group_submissions.any? %>
-                  <% group_submissions.each_with_index do |item, idx| %>
-                    <% submission = item['submission'] || {} %>
-                    <% workflow_state = submission['workflow_state'] || 'unsubmitted' %>
-                    <% user_id = submission['user_id'] %>
-                    <% user_name = item['user_name'] || "Student #{user_id}" %>
-                    <div class="evaluations-item">
-                      <div class="evaluations-item-content">
-                        <span class="evaluations-item-left">
-                          <span class="evaluations-item-number"><%= idx + 1 %></span>
-                          <span class="evaluations-item-name"><%= user_name %></span>
-                        </span>
-                        <div class="evaluations-item-status">
-                          <% if workflow_state == 'graded' %>
-                            <div class="evaluations-status-graded">
-                              <img src="/images/project/icon_group_check.svg" alt="check" class="evaluations-check-icon" />
-                              <span>Graded</span>
+              <%
+                # 선택된 그룹의 멤버 목록 (기본: 첫 번째 그룹)
+                all_submissions = assignment['group_submissions'] || []
+                submissions_by_user = all_submissions.each_with_object({}) do |item, hash|
+                  user_id = item['submission']&.dig('user_id')
+                  hash[user_id.to_s] = item if user_id
+                end
+              %>
+              <% @groups.each_with_index do |group, group_idx| %>
+                <%
+                  group_id = group['id'] || group[:id]
+                  group_members = group['members'] || []
+                  completed_count = group_members.count do |member|
+                    member_id = (member['id'] || member[:id]).to_s
+                    submissions_by_user[member_id]&.dig('submission', 'published_score') != nil
+                  end
+                %>
+                <div class="evaluations-group-wrapper"
+                     id="group-wrapper-<%= index %>-<%= group_id %>"
+                     data-step-index="<%= index %>"
+                     data-group-id="<%= group_id %>"
+                     style="<%= group_idx == 0 ? '' : 'display: none;' %>">
+                  <div class="evaluations-group-info">
+                    <img src="/images/project/icon_evaluations_arrow.svg" alt="" class="evaluations-arrow-icon" />
+                    <span class="evaluations-group-text">
+                      Group Members{' '}
+                      <span class="evaluations-complete-count">
+                        <%= completed_count %>/<%= group_members.length %> Complete
+                      </span>
+                    </span>
+                  </div>
+
+                  <!-- 그룹 멤버별 제출 상태 -->
+                  <div class="evaluations-list">
+                    <% if group_members.any? %>
+                      <% group_members.each_with_index do |member, idx| %>
+                        <%
+                          member_id = (member['id'] || member[:id]).to_s
+                          member_name = member['name'] || member[:name] || "Student #{member_id}"
+                          submission_item = submissions_by_user[member_id]
+                          submission = submission_item&.dig('submission') || {}
+                          workflow_state = submission['workflow_state'] || 'unsubmitted'
+                        %>
+                        <div class="evaluations-item">
+                          <div class="evaluations-item-content">
+                            <span class="evaluations-item-left">
+                              <span class="evaluations-item-number"><%= idx + 1 %></span>
+                              <span class="evaluations-item-name"><%= member_name %></span>
+                            </span>
+                            <div class="evaluations-item-status">
+                              <% if workflow_state == 'graded' %>
+                                <div class="evaluations-status-graded">
+                                  <img src="/images/project/icon_group_check.svg" alt="check" class="evaluations-check-icon" />
+                                  <span>Graded</span>
+                                </div>
+                              <% elsif workflow_state == 'submitted' %>
+                                <div class="evaluations-status-submitted">Submitted</div>
+                              <% else %>
+                                <div class="evaluations-status-not-yet">Not Yet</div>
+                              <% end %>
                             </div>
-                          <% elsif workflow_state == 'submitted' %>
-                            <div class="evaluations-status-submitted">Submitted</div>
-                          <% else %>
-                            <div class="evaluations-status-not-yet">Not Yet</div>
-                          <% end %>
+                            <a href="<%= speed_grader_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>&student_id=<%= member_id %>" target="_blank" rel="noopener noreferrer">
+                              <button class="evaluations-button <%= submission['published_score'] != nil ? 'btn-outlined' : 'btn-primary' %>">
+                                <%= submission['published_score'] != nil ? 'Revaluation' : 'Evaluations' %>
+                              </button>
+                            </a>
+                          </div>
                         </div>
-                        <a href="<%= speed_grader_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>&student_id=<%= user_id %>" target="_blank" rel="noopener noreferrer">
-                          <button class="evaluations-button <%= submission['published_score'] != nil ? 'btn-outlined' : 'btn-primary' %>">
-                            <%= submission['published_score'] != nil ? 'Revaluation' : 'Evaluations' %>
-                          </button>
-                        </a>
+                      <% end %>
+                    <% else %>
+                      <div class="evaluations-empty">
+                        <p>No group members found.</p>
                       </div>
-                    </div>
-                  <% end %>
-                <% else %>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+              <% if @groups.empty? %>
+                <div class="evaluations-group-info">
+                  <img src="/images/project/icon_evaluations_arrow.svg" alt="" class="evaluations-arrow-icon" />
+                  <span class="evaluations-group-text">
+                    Group Members{' '}
+                    <span class="evaluations-complete-count">
+                      0/0 Complete
+                    </span>
+                  </span>
+                </div>
+                <div class="evaluations-list">
                   <div class="evaluations-empty">
                     <p>No group members found.</p>
                   </div>
-                <% end %>
-              </div>
+                </div>
+              <% end %>
             </section>
           <% else %>
             <!-- Student Submission Phase (Canvas 스타일) -->
@@ -460,6 +501,11 @@
   
   .step-navigator-item:hover {
     border-color: #3B82F6;
+  }
+
+  .step-navigator-item.active {
+    border-color: #0626a9;
+    background-color: #f0f4ff;
   }
   
   .step-navigator-title-text {
@@ -1195,10 +1241,86 @@
 </style>
 
 <script>
-  function scrollToStep(index) {
-    const stepElement = document.getElementById('step-' + index);
-    if (stepElement) {
-      stepElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // 전역 그룹 선택 상태 저장
+  let currentSelectedGroupId = null;
+
+  // 스텝 탭 전환 (스크롤 대신 화면 전환)
+  function switchToStep(index) {
+    // 모든 스텝 카드 숨기기
+    const allStepCards = document.querySelectorAll('.step-card');
+    allStepCards.forEach(function(card) {
+      card.style.display = 'none';
+    });
+
+    // 선택된 스텝만 표시
+    const selectedStep = document.getElementById('step-' + index);
+    if (selectedStep) {
+      selectedStep.style.display = 'flex';
+    }
+
+    // 네비게이터 active 상태 업데이트
+    const allNavItems = document.querySelectorAll('.step-navigator-item');
+    allNavItems.forEach(function(item) {
+      item.classList.remove('active');
+    });
+    const selectedNavItem = document.querySelector('.step-navigator-item[data-step-index="' + index + '"]');
+    if (selectedNavItem) {
+      selectedNavItem.classList.add('active');
+    }
+
+    // 현재 선택된 그룹이 있으면 해당 스텝에서도 같은 그룹 표시
+    if (currentSelectedGroupId) {
+      updateGroupWrapperForStep(index, currentSelectedGroupId);
     }
   }
+
+  // 특정 스텝에서 그룹 wrapper 업데이트
+  function updateGroupWrapperForStep(stepIndex, groupId) {
+    // 해당 Step의 모든 그룹 wrapper 숨기기
+    const allWrappers = document.querySelectorAll('.evaluations-group-wrapper[data-step-index="' + stepIndex + '"]');
+    allWrappers.forEach(function(wrapper) {
+      wrapper.style.display = 'none';
+    });
+
+    // 선택된 그룹의 wrapper만 표시
+    const selectedWrapper = document.getElementById('group-wrapper-' + stepIndex + '-' + groupId);
+    if (selectedWrapper) {
+      selectedWrapper.style.display = 'block';
+    }
+
+    // 해당 스텝의 드롭다운도 동기화
+    const dropdown = document.getElementById('group-select-' + stepIndex);
+    if (dropdown) {
+      dropdown.value = groupId;
+    }
+  }
+
+  // 그룹 선택 시 모든 스텝에 동기화
+  document.addEventListener('DOMContentLoaded', function() {
+    const groupSelects = document.querySelectorAll('.group-select-dropdown');
+
+    // 초기 그룹 ID 저장 (첫 번째 드롭다운의 값)
+    if (groupSelects.length > 0) {
+      currentSelectedGroupId = groupSelects[0].value;
+    }
+
+    groupSelects.forEach(function(select) {
+      select.addEventListener('change', function() {
+        const selectedGroupId = this.value;
+        currentSelectedGroupId = selectedGroupId;
+
+        // 모든 스텝의 그룹 드롭다운 동기화
+        groupSelects.forEach(function(otherSelect) {
+          otherSelect.value = selectedGroupId;
+        });
+
+        // 모든 스텝의 그룹 wrapper 업데이트
+        const allStepCards = document.querySelectorAll('.step-card');
+        allStepCards.forEach(function(card, stepIndex) {
+          updateGroupWrapperForStep(stepIndex, selectedGroupId);
+        });
+      });
+    });
+  });
+</script>
 </script>

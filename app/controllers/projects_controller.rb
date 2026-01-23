@@ -50,8 +50,22 @@ class ProjectsController < ApplicationController
       if first_assignment && first_assignment['group_category_id'].present?
         begin
           group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
+          groups_client = CanvasApi::GroupsClient.new(@canvas_api)
           groups_response = group_categories_client.groups(first_assignment['group_category_id'])
-          @groups = groups_response.is_a?(Array) ? groups_response : (groups_response['data'] || [])
+          groups_list = groups_response.is_a?(Array) ? groups_response : (groups_response['data'] || [])
+
+          # 각 그룹의 멤버 조회
+          @groups = groups_list.map do |group|
+            group_id = group['id'] || group[:id]
+            begin
+              members = groups_client.members(group_id)
+              group['members'] = members.is_a?(Array) ? members : []
+            rescue => e
+              Rails.logger.error "그룹 멤버 조회 실패 (Group ID: #{group_id}): #{e.message}"
+              group['members'] = []
+            end
+            group
+          end
         rescue => e
           Rails.logger.error "그룹 조회 실패: #{e.message}"
           @groups = []
@@ -106,29 +120,7 @@ class ProjectsController < ApplicationController
   
   # Project 수정 폼
   def edit
-    course_id = @lti_context.canvas_course_id
-
-    # Assignment Groups 조회
-    assignment_groups_client = CanvasApi::AssignmentGroupsClient.new(@canvas_api)
-    @assignment_groups = assignment_groups_client.list(course_id) rescue []
-
-    # Group Categories 조회
-    group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
-    @group_categories = group_categories_client.list(course_id) rescue []
-
-    # 기존 Assignment 정보 조회
-    @project_service = ProjectService.new(@lti_context, @lti_claims, @canvas_api)
-    @project_data = @project_service.project_with_assignments(@project)
-
-    # 현재 Publish 상태 확인 (첫 번째 Assignment 기준)
-    @is_published = @project_data[:assignments].present? &&
-                    @project_data[:assignments].first['workflow_state'] == 'published'
-
-    # Canvas URL (New Group Set 버튼용)
-    issuer = @lti_claims[:issuer] || @lti_claims["issuer"] || @lti_claims[:iss] || @lti_claims["iss"]
-    audience = @lti_claims[:audience] || @lti_claims["audience"] || @lti_claims[:aud] || @lti_claims["aud"]
-    @canvas_url = LtiPlatform.find_by(iss: issuer, client_id: audience)&.actual_canvas_url
-    @canvas_course_id = course_id
+    set_edit_form_variables
   end
 
   # Project 수정
@@ -145,6 +137,7 @@ class ProjectsController < ApplicationController
     redirect_to project_path(@project), notice: '프로젝트가 수정되었습니다.'
   rescue ProjectBuilder::ProjectCreationError => e
     flash[:error] = e.message
+    set_edit_form_variables
     render :edit, status: :unprocessable_entity
   end
   
@@ -176,6 +169,33 @@ class ProjectsController < ApplicationController
     @canvas_course_id = course_id
   end
   
+  # edit 액션과 update 액션의 rescue 블록에서 공통으로 사용하는 변수 설정
+  def set_edit_form_variables
+    course_id = @lti_context.canvas_course_id
+
+    # Assignment Groups 조회
+    assignment_groups_client = CanvasApi::AssignmentGroupsClient.new(@canvas_api)
+    @assignment_groups = assignment_groups_client.list(course_id) rescue []
+
+    # Group Categories 조회
+    group_categories_client = CanvasApi::GroupCategoriesClient.new(@canvas_api)
+    @group_categories = group_categories_client.list(course_id) rescue []
+
+    # 기존 Assignment 정보 조회
+    @project_service = ProjectService.new(@lti_context, @lti_claims, @canvas_api)
+    @project_data = @project_service.project_with_assignments(@project)
+
+    # 현재 Publish 상태 확인 (첫 번째 Assignment 기준)
+    @is_published = @project_data[:assignments].present? &&
+                    @project_data[:assignments].first['workflow_state'] == 'published'
+
+    # Canvas URL (New Group Set 버튼용)
+    issuer = @lti_claims[:issuer] || @lti_claims["issuer"] || @lti_claims[:iss] || @lti_claims["iss"]
+    audience = @lti_claims[:audience] || @lti_claims["audience"] || @lti_claims[:aud] || @lti_claims["aud"]
+    @canvas_url = LtiPlatform.find_by(iss: issuer, client_id: audience)&.actual_canvas_url
+    @canvas_course_id = course_id
+  end
+
   # Canvas API로 코스 정보 조회 (옵션 2)
   def fetch_course_title_from_api
     return @lti_context.context_title unless @lti_context.canvas_course_id.present?
