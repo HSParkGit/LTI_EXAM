@@ -16,6 +16,9 @@ Rails.application.routes.draw do
   # Projects Routes
   resources :projects, only: [:index, :show, :new, :create, :edit, :update, :destroy]
 
+  # Attendance Routes
+  resources :attendance, only: [:index, :show, :new, :create, :edit, :update, :destroy]
+
   # Admin Routes (LTI Platform 관리)
   namespace :admin do
     resources :lti_platforms

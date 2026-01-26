@@ -118,8 +118,24 @@ module Lti
       Rails.logger.info "======================"
       
       # Rails 세션은 자동으로 저장되므로 별도 save 호출 불필요
-      # Projects 목록으로 리다이렉트
-      redirect_to projects_path
+      # Tool 파라미터에 따라 분기
+      redirect_to_tool
+    end
+
+    # Tool 파라미터에 따라 적절한 경로로 리다이렉트
+    def redirect_to_tool
+      tool = params[:tool]&.downcase
+
+      case tool
+      when 'attendance'
+        redirect_to attendance_index_path
+      when 'projects', nil
+        # 기본값: projects
+        redirect_to projects_path
+      else
+        Rails.logger.warn "Unknown tool requested: #{tool}, redirecting to projects"
+        redirect_to projects_path
+      end
     end
 
     private
