@@ -178,8 +178,8 @@ class ProjectService
         submissions = @submissions_client.list(course_id, assignment['id'], include: ['user'])
         assignment['group_submissions'] = submissions.map do |submission|
           {
-            submission: submission,
-            user_name: submission['user'] ? "#{submission['user']['name']}" : "Student #{submission['user_id']}"
+            'submission' => submission,  # 문자열 키 사용 (ERB 뷰와 일관성)
+            'user_name' => submission['user'] ? "#{submission['user']['name']}" : "Student #{submission['user_id']}"
           }
         end
       rescue => e
@@ -198,16 +198,18 @@ class ProjectService
     end
   end
 
-  # 학생용: 본인 제출 여부 추가
+  # 학생용: 본인 제출 여부 및 상태 추가
   def add_student_status(assignment, course_id)
     return assignment unless @canvas_user_id.present?
 
     begin
       submission = @submissions_client.find(course_id, assignment['id'], @canvas_user_id)
       assignment['is_submitted'] = submission['submitted_at'].present?
+      assignment['submission'] = submission  # Feedback 섹션에서 workflow_state 확인용
     rescue CanvasApi::Client::ApiError => e
       Rails.logger.error "Submission 조회 실패: #{e.message}"
       assignment['is_submitted'] = false
+      assignment['submission'] = nil
     end
 
     assignment

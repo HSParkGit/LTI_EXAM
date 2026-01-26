@@ -293,25 +293,56 @@
               </header>
               <div class="submission-phase-grid">
                 <!-- 1. Submit -->
+                <%
+                  due_at = assignment['due_at']
+                  is_past_due = due_at.present? && Time.parse(due_at) < Time.current
+                  submission_attempts = assignment['submission_attempts'] || assignment['submission']&.dig('attempt') || 0
+                  allowed_attempts = assignment['allowed_attempts'] || -1
+                  can_resubmit = allowed_attempts == -1 || submission_attempts < allowed_attempts
+                  is_submit_active = !is_past_due && (!assignment['is_submitted'] || can_resubmit)
+                %>
                 <div class="submission-phase-card">
                   <article class="submission-phase-card-content submission-phase-card-submit">
                     <div class="submission-phase-card-header">
                       <div class="submission-phase-card-title-section">
                         <h3 class="submission-phase-card-title">1. submit</h3>
-                        <% if assignment['due_at'].present? %>
-                          <p class="submission-phase-card-due">Due: <%= format_date_navigator(assignment['due_at']).join(' ') %></p>
+                        <% if due_at.present? %>
+                          <p class="submission-phase-card-due <%= is_past_due ? 'past-due' : '' %>">Due: <%= format_date_navigator(due_at).join(' ') %></p>
                         <% end %>
                       </div>
                       <img src="/images/project/icon_submission.svg" alt="Submit task icon" class="submission-phase-card-icon" />
                     </div>
                     <div class="submission-phase-card-body">
                       <div class="submission-phase-card-button-wrapper">
-                        <% if assignment['is_submitted'] %>
-                          <% submission_attempts = assignment['submission_attempts'] || assignment['submission']&.dig('attempt') || 1 %>
-                          <button class="submission-phase-button submission-phase-button-resubmit" 
-                                  onclick="window.open('<%= canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>', '_blank')">
-                            Resubmit (<%= submission_attempts %> attempts)
+                        <% if is_past_due %>
+                          <!-- 마감일 지남 -->
+                          <button class="submission-phase-button submission-phase-button-disabled" disabled>
+                            Past Due
                           </button>
+                          <% if assignment['is_submitted'] %>
+                            <% submitted_at = assignment['submitted_at'] || assignment['submission']&.dig('submitted_at') %>
+                            <% if submitted_at.present? %>
+                              <div class="submission-phase-submitted-info">
+                                <span>Submitted: <%= format_date_navigator(submitted_at).join(' ') %></span>
+                              </div>
+                            <% end %>
+                          <% end %>
+                        <% elsif assignment['is_submitted'] %>
+                          <!-- 제출 완료, 재제출 가능 -->
+                          <% if can_resubmit %>
+                            <button class="submission-phase-button submission-phase-button-resubmit"
+                                    onclick="window.open('<%= canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>', '_blank')">
+                              <% if allowed_attempts == -1 %>
+                                Resubmit (<%= submission_attempts %> attempts)
+                              <% else %>
+                                Resubmit: <%= submission_attempts %>/<%= allowed_attempts %>
+                              <% end %>
+                            </button>
+                          <% else %>
+                            <button class="submission-phase-button submission-phase-button-disabled" disabled>
+                              Submitted
+                            </button>
+                          <% end %>
                           <% submitted_at = assignment['submitted_at'] || assignment['submission']&.dig('submitted_at') %>
                           <% if submitted_at.present? %>
                             <div class="submission-phase-submitted-info">
@@ -319,12 +350,15 @@
                             </div>
                           <% end %>
                         <% else %>
-                          <button class="submission-phase-button submission-phase-button-submit" 
+                          <!-- 미제출 -->
+                          <button class="submission-phase-button submission-phase-button-submit"
                                   onclick="window.open('<%= canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>', '_blank')">
                             Submit
                           </button>
                         <% end %>
-                        <p class="submission-phase-refresh-note">Please refresh the page after submitting your assignment.</p>
+                        <% if is_submit_active %>
+                          <p class="submission-phase-refresh-note">Please refresh the page after submitting your assignment.</p>
+                        <% end %>
                       </div>
                     </div>
                   </article>
@@ -332,6 +366,11 @@
                 
                 <!-- 2. Review (Peer Review, 조건부) -->
                 <% if assignment['peer_reviews'] %>
+                  <%
+                    assigned_reviews = assignment['assigned_peer_reviews'] || []
+                    completed_reviews = assigned_reviews.select { |r| r['workflow_state'] == 'completed' }
+                    pending_reviews = assigned_reviews.select { |r| r['workflow_state'] != 'completed' }
+                  %>
                   <div class="submission-phase-card">
                     <article class="submission-phase-card-content submission-phase-card-review">
                       <div class="submission-phase-card-header">
@@ -345,16 +384,59 @@
                       </div>
                       <div class="submission-phase-card-body">
                         <% if assignment['is_submitted'] %>
-                          <div class="submission-phase-card-button-wrapper">
-                            <button class="submission-phase-button submission-phase-button-review" 
-                                    onclick="window.open('<%= canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>', '_blank')">
-                              Peer Review
-                            </button>
-                          </div>
+                          <% if assigned_reviews.any? %>
+                            <!-- 피어 리뷰 진행 상태 -->
+                            <div class="peer-review-status">
+                              <span class="peer-review-count">
+                                Completed: <strong><%= completed_reviews.length %>/<%= assigned_reviews.length %></strong>
+                              </span>
+                            </div>
+                            <!-- 피어 리뷰 목록 -->
+                            <div class="peer-review-list">
+                              <% assigned_reviews.each do |review| %>
+                                <%
+                                  is_completed = review['workflow_state'] == 'completed'
+                                  target_user_id = review['user_id']
+                                  target_user = review['user']
+                                  target_name = target_user ? target_user['display_name'] || target_user['name'] : "Student #{target_user_id}"
+                                  review_url = "#{@canvas_url}/courses/#{@lti_context.canvas_course_id}/assignments/#{assignment['id']}/submissions/#{target_user_id}"
+                                %>
+                                <div class="peer-review-item <%= is_completed ? 'completed' : 'pending' %>">
+                                  <div class="peer-review-item-info">
+                                    <span class="peer-review-item-icon">
+                                      <% if is_completed %>
+                                        <img src="/images/project/icon_group_check.svg" alt="Completed" width="16" height="16" />
+                                      <% else %>
+                                        <span class="peer-review-pending-dot"></span>
+                                      <% end %>
+                                    </span>
+                                    <span class="peer-review-item-name"><%= target_name %></span>
+                                    <span class="peer-review-item-status <%= is_completed ? 'status-completed' : 'status-pending' %>">
+                                      <%= is_completed ? 'Completed' : 'Pending' %>
+                                    </span>
+                                  </div>
+                                  <% unless is_completed %>
+                                    <a href="<%= review_url %>" target="_blank" rel="noopener noreferrer" class="peer-review-btn">
+                                      Review
+                                    </a>
+                                  <% end %>
+                                </div>
+                              <% end %>
+                            </div>
+                          <% else %>
+                            <!-- 할당된 피어 리뷰 없음 -->
+                            <div class="peer-review-empty">
+                              <p>No peer reviews assigned yet.</p>
+                              <button class="submission-phase-button submission-phase-button-review"
+                                      onclick="window.open('<%= canvas_assignment_url(@lti_context.canvas_course_id, assignment['id'], @canvas_url) %>', '_blank')">
+                                View Assignment
+                              </button>
+                            </div>
+                          <% end %>
                         <% else %>
                           <div class="submission-phase-locked">
                             <img src="/images/project/icon_lock.svg" alt="Unlock icon" class="submission-phase-lock-icon" />
-                            <p>unlocks <%= format_date_navigator(assignment['peer_reviews_due_at'] || assignment['lock_at']).join(' ') %></p>
+                            <p>Submit your work first to unlock peer review</p>
                           </div>
                         <% end %>
                       </div>
@@ -784,7 +866,12 @@
     color: #6B7280;
     margin: 0;
   }
-  
+
+  .submission-phase-card-due.past-due {
+    color: #EF4444;
+    font-weight: 500;
+  }
+
   .submission-phase-card-icon {
     width: 20px;
     height: 20px;
@@ -1237,6 +1324,124 @@
 
   .step-edit-in-canvas .btn-secondary:hover {
     background-color: #e6e6e6;
+  }
+
+  /* Peer Review 스타일 */
+  .peer-review-status {
+    text-align: center;
+    margin-bottom: 12px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+
+  .peer-review-count {
+    font-size: 14px;
+    color: #6B7280;
+  }
+
+  .peer-review-count strong {
+    color: #04CD00;
+  }
+
+  .peer-review-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .peer-review-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+  }
+
+  .peer-review-item.completed {
+    background-color: #f0fdf4;
+    border-color: #bbf7d0;
+  }
+
+  .peer-review-item.pending {
+    background-color: #fffbeb;
+    border-color: #fde68a;
+  }
+
+  .peer-review-item-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+
+  .peer-review-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+  }
+
+  .peer-review-pending-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #F59E0B;
+  }
+
+  .peer-review-item-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  .peer-review-item-status {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .peer-review-item-status.status-completed {
+    color: #04CD00;
+    background-color: #dcfce7;
+  }
+
+  .peer-review-item-status.status-pending {
+    color: #F59E0B;
+    background-color: #fef3c7;
+  }
+
+  .peer-review-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: white;
+    background-color: #3b82f6;
+    border: none;
+    border-radius: 4px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .peer-review-btn:hover {
+    background-color: #2563eb;
+    color: white;
+    text-decoration: none;
+  }
+
+  .peer-review-empty {
+    text-align: center;
+    padding: 16px;
+  }
+
+  .peer-review-empty p {
+    font-size: 14px;
+    color: #6B7280;
+    margin-bottom: 12px;
   }
 </style>
 

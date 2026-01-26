@@ -76,8 +76,32 @@ class ProjectsController < ApplicationController
     else
       @groups = []
     end
+
+    # 학생인 경우: 할당된 피어 리뷰 정보 조회
+    if @user_role == :student && course_id.present? && @project_data[:assignments].present?
+      canvas_user_id = @lti_claims[:canvas_user_id] || @lti_claims["canvas_user_id"]
+      if canvas_user_id.present?
+        peer_reviews_client = CanvasApi::PeerReviewsClient.new(@canvas_api)
+        @project_data[:assignments].each do |assignment|
+          next unless assignment['peer_reviews']
+
+          begin
+            # 해당 학생에게 할당된 피어 리뷰만 조회
+            assigned_reviews = peer_reviews_client.assigned_to_user(
+              course_id,
+              assignment['id'],
+              canvas_user_id
+            )
+            assignment['assigned_peer_reviews'] = assigned_reviews
+          rescue => e
+            Rails.logger.error "피어 리뷰 조회 실패 (Assignment ID: #{assignment['id']}): #{e.message}"
+            assignment['assigned_peer_reviews'] = []
+          end
+        end
+      end
+    end
   end
-  
+
   # Project 생성 폼
   def new
     @project = Project.new
