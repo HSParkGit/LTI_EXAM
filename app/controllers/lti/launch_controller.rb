@@ -105,10 +105,23 @@ module Lti
         end
       end
       
-      # 세션에 LTI Claims 저장
-      session[:lti_claims] = @lti_claims
+      # 세션에 LTI Claims 저장 (HashWithIndifferentAccess로 Symbol/String 키 모두 지원)
+      session[:lti_claims] = @lti_claims.with_indifferent_access
       session[:lti_claims_expires_at] = 1.hour.from_now
       session[:lti_context_id] = lti_context.id
+
+      # 서드파티 쿠키 차단 대비: 서버사이드 토큰으로도 저장
+      # Safari, Chrome 시크릿 등에서 iframe 내 세션 쿠키가 차단될 때 사용
+      @lti_token = SecureRandom.hex(32)
+      Rails.cache.write(
+        "lti_token:#{@lti_token}",
+        {
+          lti_claims: @lti_claims.with_indifferent_access,
+          lti_claims_expires_at: 1.hour.from_now,
+          lti_context_id: lti_context.id
+        },
+        expires_in: 1.hour
+      )
       
       # 디버깅: 세션 저장 확인
       Rails.logger.info "=== LTI Launch 성공 ==="
@@ -128,13 +141,12 @@ module Lti
 
       case tool
       when 'attendance'
-        redirect_to attendance_index_path
+        redirect_to attendance_index_path(lti_token: @lti_token)
       when 'projects', nil
-        # 기본값: projects
-        redirect_to projects_path
+        redirect_to projects_path(lti_token: @lti_token)
       else
         Rails.logger.warn "Unknown tool requested: #{tool}, redirecting to projects"
-        redirect_to projects_path
+        redirect_to projects_path(lti_token: @lti_token)
       end
     end
 
@@ -246,7 +258,13 @@ module Lti
         canvas_workflow_state: payload["https://canvas.instructure.com/lti/workflow_state"], # 코스 상태 (active 등)
         
         # Custom Parameters 전체 (디버깅 및 확장용)
-        custom_params: custom_params
+        custom_params: custom_params,
+
+        # 출결용 학생 식별자 (Canvas Developer Key Custom Fields에서 설정)
+        # VOD (Panopto): custom_canvas_user_login_id = $Canvas.user.loginId
+        # LIVE (Zoom): email (위에서 이미 추출)
+        custom_canvas_user_login_id: custom_params["canvas_user_login_id"] || custom_params[:canvas_user_login_id],
+        custom_canvas_user_id: custom_params["canvas_user_id"] || custom_params[:canvas_user_id] || custom_user_id
       }
     end
 

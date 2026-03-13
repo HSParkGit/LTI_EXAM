@@ -74,6 +74,7 @@ Rails.application.configure do
   config.hosts << /.*\.ngrok-free\.app/
   config.hosts << /.*\.ngrok-free\.dev/
   config.hosts << /.*\.ngrok\.io/
+  config.hosts << /.*\.trycloudflare\.com/
   
   # ngrok을 통한 HTTPS 접근 시 Secure 쿠키 필요
   # SameSite=None을 사용하려면 Secure가 true여야 함

@@ -1,14 +1,36 @@
 class ApplicationController < ActionController::Base
-  # CSRF 토큰 검증 비활성화 (LTI Launch는 POST지만 외부에서 오므로)
-  # Admin 컨트롤러는 CSRF 보호 필요하므로 skip 제거
-  # LTI 컨트롤러만 skip 필요
-  
+  # 서드파티 쿠키 차단 대비: 토큰으로 세션 복원 (load_lti_claims보다 먼저 실행)
+  before_action :restore_lti_session_from_token
+
   # Canvas iframe에서 표시 가능하도록 X-Frame-Options 제거 (전역)
-  # LTI Tool은 Canvas iframe 내에서 실행되므로 필요
-  # ngrok이 헤더를 추가할 수 있으므로 강제로 제거
   after_action :allow_iframe, unless: :admin_controller?
-  
+
   private
+
+  # Safari, Chrome 시크릿 등에서 iframe 내 세션 쿠키가 차단될 때
+  # URL 파라미터(?lti_token=xxx) 또는 세션에 저장된 토큰으로 LTI 데이터 복원
+  def restore_lti_session_from_token
+    token = params[:lti_token] || session[:lti_token]
+    return if token.blank?
+
+    # 세션에 유효한 claims가 이미 있으면 스킵
+    if session[:lti_claims].present? && session[:lti_claims_expires_at].present? &&
+       session[:lti_claims_expires_at] > Time.current
+      session[:lti_token] ||= token
+      return
+    end
+
+    # 캐시에서 토큰으로 LTI 데이터 복원
+    cached_data = Rails.cache.read("lti_token:#{token}")
+    return if cached_data.blank?
+
+    session[:lti_claims] = cached_data[:lti_claims]
+    session[:lti_claims_expires_at] = cached_data[:lti_claims_expires_at]
+    session[:lti_context_id] = cached_data[:lti_context_id]
+    session[:lti_token] = token
+
+    Rails.logger.info "LTI session restored from token (third-party cookie bypass)"
+  end
   
   # Canvas iframe에서 표시 가능하도록 X-Frame-Options 제거
   # ngrok 등 프록시가 헤더를 추가할 수 있으므로 강제로 제거
