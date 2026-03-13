@@ -5,6 +5,12 @@ class ApplicationController < ActionController::Base
   # Canvas iframe에서 표시 가능하도록 X-Frame-Options 제거 (전역)
   after_action :allow_iframe, unless: :admin_controller?
 
+  # 앱 내 모든 URL에 lti_token 자동 전파 (서드파티 쿠키 차단 환경 대응)
+  def default_url_options
+    token = params[:lti_token] || session[:lti_token]
+    token.present? ? { lti_token: token } : {}
+  end
+
   private
 
   # Safari, Chrome 시크릿 등에서 iframe 내 세션 쿠키가 차단될 때
