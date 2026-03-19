@@ -20,28 +20,35 @@ module Lti
     class << self
       # iss(issuer)에 해당하는 client_id 조회
       # @param iss [String] Canvas 인스턴스 URL
+      # @param client_id [String, nil] Canvas가 전달한 client_id (같은 iss에 여러 Tool이 있을 때)
       # @return [String] Client ID
       # @raise [ConfigurationError] 설정이 없거나 iss가 등록되지 않은 경우
-      def client_id_for(iss)
+      def client_id_for(iss, client_id = nil)
+        # client_id가 명시적으로 전달된 경우, 해당 Platform이 존재하는지만 확인
+        if client_id.present?
+          platform = LtiPlatform.by_iss_and_client_id(iss, client_id).first
+          return platform.client_id if platform
+        end
+
         # 캐시 확인
         cache_key = "platform:#{iss}"
         if cached = get_from_cache(cache_key)
           return cached
         end
-        
+
         # 1. 데이터베이스에서 조회 (우선순위)
         platform = LtiPlatform.by_iss(iss).first
         if platform
           set_cache(cache_key, platform.client_id)
           return platform.client_id
         end
-        
+
         # 2. 환경변수 fallback (하위 호환)
         if env_client_id = client_id_from_env(iss)
           set_cache(cache_key, env_client_id)
           return env_client_id
         end
-        
+
         raise ConfigurationError, "No client_id configured for issuer: #{iss}. Please add it to the database or environment variables."
       end
 
@@ -63,13 +70,19 @@ module Lti
       # @param iss [String] Canvas 발급자 URL
       # @return [String] 실제 Canvas 인스턴스 URL
       # @raise [ConfigurationError] 설정이 없거나 iss가 등록되지 않은 경우
-      def canvas_url_for(iss)
+      def canvas_url_for(iss, client_id = nil)
+        # client_id가 명시적으로 전달된 경우 정확히 매칭
+        if client_id.present?
+          platform = LtiPlatform.by_iss_and_client_id(iss, client_id).first
+          return platform.actual_canvas_url if platform
+        end
+
         # 캐시 확인
         cache_key = "canvas_url:#{iss}"
         if cached = get_from_cache(cache_key)
           return cached
         end
-        
+
         # 1. 데이터베이스에서 조회 (우선순위)
         platform = LtiPlatform.by_iss(iss).first
         if platform

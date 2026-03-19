@@ -1,77 +1,562 @@
-<div class="container">
-  <h1>새 Canvas Platform 등록</h1>
+<div class="lti-admin-container">
+  <div class="page-header">
+    <h1>새 Canvas Platform 등록</h1>
+    <p class="subtitle">LTI 1.3 연동을 위한 Canvas 인스턴스를 등록합니다</p>
+  </div>
 
-  <%= form_with model: [:admin, @lti_platform], local: true do |form| %>
-    <% if @lti_platform.errors.any? %>
-      <div class="alert alert-danger">
-        <h4>다음 오류가 발생했습니다:</h4>
-        <ul>
-          <% @lti_platform.errors.full_messages.each do |message| %>
-            <li><%= message %></li>
-          <% end %>
-        </ul>
-      </div>
-    <% end %>
-
-    <div class="form-group">
-      <%= form.label :iss, "Canvas 발급자 (ISS)" %>
-      <%= form.text_field :iss, class: "form-control", placeholder: "https://canvas.instructure.com", required: true %>
-      <small class="form-text text-muted">Canvas가 보내는 발급자 값입니다. Canvas Open Source는 보통 <code>https://canvas.instructure.com</code>입니다.</small>
-    </div>
-
-    <div class="form-group">
-      <%= form.label :canvas_url, "실제 Canvas 인스턴스 URL" %>
-      <%= form.text_field :canvas_url, class: "form-control", placeholder: "https://your-canvas.ngrok-free.app" %>
-      <small class="form-text text-muted">
-        <strong>Canvas Open Source 필수:</strong> 실제 Canvas 인스턴스 URL입니다.<br>
-        예: <code>https://5e60aecc33bb.ngrok-free.app</code><br>
-        이 URL은 authorization endpoint, token endpoint, JWKS endpoint에 사용됩니다.<br>
-        비워두면 ISS 값을 사용합니다.
-      </small>
-    </div>
-
-    <div class="form-group">
-      <%= form.label :client_id, "Client ID" %>
-      <%= form.text_field :client_id, class: "form-control", placeholder: "10000000000001", required: true %>
-      <small class="form-text text-muted">Canvas Developer Key에서 발급받은 Client ID입니다.</small>
-    </div>
-
-    <div class="form-group">
-      <%= form.label :client_secret, "Client Secret" %>
-      <%= form.password_field :client_secret, class: "form-control", placeholder: "Canvas Developer Key의 Client Secret", required: true %>
-      <small class="form-text text-muted">
-        <strong>필수:</strong> Canvas Developer Key에서 발급받은 Client Secret입니다.<br>
-        LTI Launch 인증에 사용됩니다. (민감 정보이므로 암호화 저장됩니다)
-      </small>
-    </div>
-
-    <div class="form-group">
-      <%= form.label :canvas_api_token, "Canvas API Token (Personal Access Token)" %>
-      <%= form.password_field :canvas_api_token, class: "form-control", placeholder: "Canvas Personal Access Token", required: true %>
-      <small class="form-text text-muted">
-        <strong>필수:</strong> Canvas에서 발급받은 Personal Access Token입니다.<br>
-        Canvas API 호출을 위해 필요합니다. (민감 정보이므로 암호화 저장됩니다)<br>
-        <strong>발급 방법:</strong> Canvas > Account > Settings > New Access Token
-      </small>
-    </div>
-
-    <div class="form-group">
-      <%= form.label :name, "이름 (선택사항)" %>
-      <%= form.text_field :name, class: "form-control", placeholder: "Canvas Production" %>
-      <small class="form-text text-muted">Platform을 구분하기 위한 이름입니다.</small>
-    </div>
-
-    <div class="form-group">
-      <div class="form-check">
-        <%= form.check_box :active, class: "form-check-input", checked: true %>
-        <%= form.label :active, "활성화", class: "form-check-label" %>
-      </div>
-      <small class="form-text text-muted">비활성화된 Platform은 LTI Launch에 사용되지 않습니다.</small>
-    </div>
-
-    <div class="form-actions">
-      <%= form.submit "등록", class: "btn btn-primary" %>
-      <%= link_to "취소", admin_lti_platforms_path, class: "btn btn-secondary" %>
+  <% if @lti_platform.errors.any? %>
+    <div class="alert alert-danger">
+      <strong>오류가 발생했습니다:</strong>
+      <ul>
+        <% @lti_platform.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
     </div>
   <% end %>
+
+  <div class="content-grid">
+    <!-- Left Column: Form -->
+    <div class="form-section">
+      <div class="card">
+        <div class="card-header">
+          <h2>Platform 정보 입력</h2>
+        </div>
+        <div class="card-body">
+          <%= form_with model: [:admin, @lti_platform], local: true, class: "lti-form" do |form| %>
+            <div class="form-group">
+              <%= form.label :iss, "Issuer (ISS)" %>
+              <%= form.text_field :iss, class: "form-control", required: true, placeholder: "https://canvas.instructure.com" %>
+              <small class="form-hint">
+                Canvas가 보내는 발급자 식별자입니다.<br>
+                Canvas Open Source: <code>https://canvas.instructure.com</code>
+              </small>
+            </div>
+
+            <div class="form-group">
+              <%= form.label :canvas_url, "Canvas URL" %>
+              <%= form.text_field :canvas_url, class: "form-control", placeholder: "https://your-canvas.example.com" %>
+              <small class="form-hint">
+                실제 Canvas 인스턴스 URL입니다. API 호출 및 인증 엔드포인트에 사용됩니다.<br>
+                <strong>Canvas Open Source 필수:</strong> ngrok 등 실제 접속 URL을 입력하세요.
+              </small>
+            </div>
+
+            <div class="form-group">
+              <%= form.label :client_id, "Client ID" %>
+              <%= form.text_field :client_id, class: "form-control", required: true, placeholder: "10000000000001" %>
+              <small class="form-hint">Canvas Developer Key에서 발급받은 Client ID입니다.</small>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group half">
+                <%= form.label :client_secret, "Client Secret" %>
+                <%= form.password_field :client_secret, class: "form-control", required: true, placeholder: "Developer Key Secret" %>
+                <small class="form-hint">Developer Key의 Secret</small>
+              </div>
+
+              <div class="form-group half">
+                <%= form.label :canvas_api_token, "API Token" %>
+                <%= form.password_field :canvas_api_token, class: "form-control", required: true, placeholder: "Personal Access Token" %>
+                <small class="form-hint">Canvas API 호출용</small>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group half">
+                <%= form.label :name, "표시 이름" %>
+                <%= form.text_field :name, class: "form-control", placeholder: "예: 우리대학 Canvas" %>
+                <small class="form-hint">구분을 위한 이름 (선택)</small>
+              </div>
+
+              <div class="form-group half">
+                <label>&nbsp;</label>
+                <div class="form-check">
+                  <%= form.check_box :active, class: "form-check-input", checked: true %>
+                  <%= form.label :active, "활성화", class: "form-check-label" %>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <%= form.submit "등록", class: "btn btn-primary" %>
+              <%= link_to "취소", admin_lti_platforms_path, class: "btn btn-secondary" %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Setup Guide -->
+    <div class="info-section">
+      <!-- Setup Guide -->
+      <div class="card card-guide">
+        <div class="card-header">
+          <h2>설정 가이드</h2>
+          <span class="badge badge-info">필독</span>
+        </div>
+        <div class="card-body">
+          <div class="setup-steps">
+            <div class="step">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <h4>Canvas Developer Key 생성</h4>
+                <p>Canvas Admin > Developer Keys > + Developer Key > LTI Key</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <h4>아래 URL 복사하여 입력</h4>
+                <p>Developer Key 설정에 Tool URL들을 입력하세요.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-number">3</div>
+              <div class="step-content">
+                <h4>Client ID/Secret 발급</h4>
+                <p>Developer Key 생성 후 Client ID와 Secret을 이 폼에 입력하세요.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-number">4</div>
+              <div class="step-content">
+                <h4>Canvas API Token 발급</h4>
+                <p>Canvas > Account > Settings > New Access Token</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas Developer Key URLs -->
+      <div class="card card-info">
+        <div class="card-header">
+          <h2>Canvas Developer Key 설정값</h2>
+          <span class="badge">복사용</span>
+        </div>
+        <div class="card-body">
+          <p class="card-description">Developer Key 생성 시 아래 URL들을 복사하여 사용하세요.</p>
+
+          <% tool_host = request.base_url %>
+
+          <div class="config-group">
+            <h3>공통 설정</h3>
+            <div class="config-item">
+              <label>Target Link URI</label>
+              <div class="copyable-field">
+                <code id="target-uri"><%= tool_host %>/lti/launch</code>
+                <button type="button" class="btn-copy" onclick="copyToClipboard('target-uri')">복사</button>
+              </div>
+            </div>
+            <div class="config-item">
+              <label>OpenID Connect Initiation URL</label>
+              <div class="copyable-field">
+                <code id="oidc-url"><%= tool_host %>/lti/login</code>
+                <button type="button" class="btn-copy" onclick="copyToClipboard('oidc-url')">복사</button>
+              </div>
+            </div>
+            <div class="config-item">
+              <label>Redirect URIs</label>
+              <div class="copyable-field">
+                <code id="redirect-uri"><%= tool_host %>/lti/launch</code>
+                <button type="button" class="btn-copy" onclick="copyToClipboard('redirect-uri')">복사</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-group">
+            <h3>Tool별 Placement URL</h3>
+            <div class="tool-config">
+              <div class="tool-badge tool-projects">Projects</div>
+              <div class="config-item">
+                <label>Target Link URI</label>
+                <div class="copyable-field">
+                  <code id="projects-url"><%= tool_host %>/lti/launch?tool=projects</code>
+                  <button type="button" class="btn-copy" onclick="copyToClipboard('projects-url')">복사</button>
+                </div>
+              </div>
+            </div>
+            <div class="tool-config">
+              <div class="tool-badge tool-attendance">Attendance</div>
+              <div class="config-item">
+                <label>Target Link URI</label>
+                <div class="copyable-field">
+                  <code id="attendance-url"><%= tool_host %>/lti/launch?tool=attendance</code>
+                  <button type="button" class="btn-copy" onclick="copyToClipboard('attendance-url')">복사</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<style>
+  .lti-admin-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .page-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #0d6efd;
+  }
+
+  .page-header h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #212529;
+    margin: 0;
+  }
+
+  .page-header .subtitle {
+    color: #6c757d;
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+  }
+
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  @media (max-width: 1200px) {
+    .content-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .card-header h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #212529;
+    margin: 0;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .card-description {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0 0 1rem;
+  }
+
+  .badge {
+    font-size: 0.625rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background: #e7f1ff;
+    color: #0d6efd;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .badge-info {
+    background: #cff4fc;
+    color: #055160;
+  }
+
+  /* Setup Steps */
+  .setup-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .step {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .step-number {
+    width: 28px;
+    height: 28px;
+    background: #0d6efd;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .step-content {
+    flex: 1;
+  }
+
+  .step-content h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #212529;
+    margin: 0 0 0.25rem;
+  }
+
+  .step-content p {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin: 0;
+  }
+
+  /* Form Styles */
+  .lti-form .form-group {
+    margin-bottom: 1.25rem;
+  }
+
+  .lti-form label {
+    display: block;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #495057;
+    margin-bottom: 0.375rem;
+  }
+
+  .lti-form .form-control {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+
+  .lti-form .form-control:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(13,110,253,0.25);
+  }
+
+  .form-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+  }
+
+  .form-hint code {
+    background: #f8f9fa;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .form-group.half {
+    flex: 1;
+  }
+
+  .form-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+  }
+
+  .form-check-input {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e9ecef;
+  }
+
+  .btn {
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: #0d6efd;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: #0b5ed7;
+  }
+
+  .btn-secondary {
+    background: #6c757d;
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background: #5c636a;
+  }
+
+  /* Config Info Styles */
+  .config-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .config-group:last-child {
+    margin-bottom: 0;
+  }
+
+  .config-group h3 {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 0.75rem;
+  }
+
+  .config-item {
+    margin-bottom: 0.75rem;
+  }
+
+  .config-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .config-item label {
+    display: block;
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+  }
+
+  .copyable-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .copyable-field code {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    color: #212529;
+    word-break: break-all;
+  }
+
+  .btn-copy {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    background: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .btn-copy:hover {
+    background: #0b5ed7;
+  }
+
+  .tool-config {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .tool-config:last-child {
+    margin-bottom: 0;
+  }
+
+  .tool-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  .tool-projects {
+    background: #cff4fc;
+    color: #055160;
+  }
+
+  .tool-attendance {
+    background: #d1e7dd;
+    color: #0f5132;
+  }
+
+  /* Alert */
+  .alert {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .alert-danger {
+    background: #f8d7da;
+    border: 1px solid #f5c2c7;
+    color: #842029;
+  }
+
+  .alert-danger ul {
+    margin: 0.5rem 0 0;
+    padding-left: 1.25rem;
+  }
+</style>
+
+<script>
+  function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    const text = element.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+      const button = element.nextElementSibling;
+      const originalText = button.textContent;
+      button.textContent = '복사됨!';
+      button.style.background = '#198754';
+
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.style.background = '';
+      }, 1500);
+    });
+  }
+</script>

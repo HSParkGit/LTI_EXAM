@@ -45,5 +45,34 @@ module CanvasApi
     def list(course_id, params = {})
       @client.get("/courses/#{course_id}/enrollments", params)
     end
+
+    # 코스의 active 학생 목록 조회
+    # @param course_id [String] Canvas Course ID
+    # @return [Array<Hash>] 학생 정보 배열
+    #   [{ user_id:, name:, sortable_name:, login_id:, email: }, ...]
+    def list_students(course_id)
+      enrollments = list(course_id, {
+        'type[]' => 'StudentEnrollment',
+        'state[]' => 'active',
+        'include[]' => 'email',
+        'per_page' => 100
+      })
+
+      seen = Set.new
+      enrollments.filter_map do |enrollment|
+        user = enrollment['user']
+        next unless user
+        next if seen.include?(user['id'])
+
+        seen << user['id']
+        {
+          user_id: user['id'],
+          name: user['name'],
+          sortable_name: user['sortable_name'],
+          login_id: user['login_id'],  # Panopto 식별자 (Canvas unique_id)
+          email: user['email']          # Zoom 식별자
+        }
+      end
+    end
   end
 end

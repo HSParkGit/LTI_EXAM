@@ -45,8 +45,8 @@ module Lti
       end
       
       # JWT 검증
-      # iss에 해당하는 client_id 조회 (여러 Canvas 인스턴스 지원)
-      expected_client_id = Lti::PlatformConfig.client_id_for(state_data[:iss])
+      # iss와 client_id로 정확한 Platform 조회 (같은 iss에 여러 Tool이 있을 수 있음)
+      expected_client_id = Lti::PlatformConfig.client_id_for(state_data[:iss], state_data[:client_id])
       
       begin
         payload = Lti::JwtVerifier.verify(
@@ -89,20 +89,24 @@ module Lti
       ) do |context|
         context.context_type = @lti_claims[:context_type] || @lti_claims["context_type"] || 'Course'
         context.context_title = @lti_claims[:context_title] || @lti_claims["context_title"]
+        context.context_label = @lti_claims[:context_label] || @lti_claims["context_label"]
         context.canvas_url = lti_platform.actual_canvas_url
         context.deployment_id = @lti_claims[:deployment_id] || @lti_claims["deployment_id"]
       end
-      
-      # Canvas 실제 Course ID 저장/업데이트 (Custom Parameters 또는 Canvas 클레임에서)
-      # 항상 업데이트하여 최신 값 유지
-      canvas_course_id = @lti_claims[:canvas_course_id] || @lti_claims["canvas_course_id"]
-      if canvas_course_id.present?
-        canvas_course_id_int = canvas_course_id.to_i
-        # 값이 변경되었거나 nil인 경우 업데이트
-        if lti_context.canvas_course_id != canvas_course_id_int
-          lti_context.update(canvas_course_id: canvas_course_id_int)
-          Rails.logger.info "LtiContext canvas_course_id 업데이트: #{lti_context.id} -> #{canvas_course_id_int}"
-        end
+
+      # 기존 레코드의 코스 정보 최신화 (매 launch마다)
+      updates = {}
+      context_title = @lti_claims[:context_title] || @lti_claims["context_title"]
+      context_label = @lti_claims[:context_label] || @lti_claims["context_label"]
+      canvas_course_id = (@lti_claims[:canvas_course_id] || @lti_claims["canvas_course_id"])&.to_i
+
+      updates[:context_title] = context_title if context_title.present? && lti_context.context_title != context_title
+      updates[:context_label] = context_label if context_label.present? && lti_context.context_label != context_label
+      updates[:canvas_course_id] = canvas_course_id if canvas_course_id.present? && canvas_course_id > 0 && lti_context.canvas_course_id != canvas_course_id
+
+      if updates.any?
+        lti_context.update(updates)
+        Rails.logger.info "LtiContext 업데이트 (#{lti_context.id}): #{updates.keys.join(', ')}"
       end
       
       # 세션에 LTI Claims 저장 (HashWithIndifferentAccess로 Symbol/String 키 모두 지원)

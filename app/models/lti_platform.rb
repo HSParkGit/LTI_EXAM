@@ -14,8 +14,8 @@ class LtiPlatform < ApplicationRecord
   validates :iss, uniqueness: { scope: :client_id, message: "이 ISS와 Client ID 조합은 이미 등록되어 있습니다." }
   validates :name, length: { maximum: 255 }, allow_nil: true
   validates :canvas_url, format: { with: /\Ahttps?:\/\/.+\z/, message: "must be a valid URL" }, allow_nil: true
-  validates :client_secret, presence: true, if: -> { active? }
-  validates :canvas_api_token, presence: true, if: -> { active? }
+  validates :client_secret, length: { maximum: 1000 }, allow_blank: true
+  validates :canvas_api_token, length: { maximum: 1000 }, allow_blank: true
   
   # Client Secret 암호화 저장 (Rails 7.1+)
   # Active Record Encryption을 사용하여 민감 정보 암호화

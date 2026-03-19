@@ -36,6 +36,7 @@ module Lti
       state_key = "lti:state:#{state}"
       Rails.cache.write(state_key, {
         iss: iss,
+        client_id: params[:client_id],
         target_link_uri: target_link_uri,
         nonce: nonce
       }, expires_in: 10.minutes)
@@ -47,7 +48,8 @@ module Lti
         target_link_uri: target_link_uri,
         state: state,
         nonce: nonce,
-        lti_message_hint: lti_message_hint
+        lti_message_hint: lti_message_hint,
+        request_client_id: params[:client_id]
       )
       
       # Canvas Authorization Endpoint로 리다이렉트
@@ -61,12 +63,12 @@ module Lti
     #   - Client ID: Canvas Developer Key에서 발급받은 값 (예: 10000000000001)
     #   - Canvas Open Source: iss는 https://canvas.instructure.com이지만,
     #     실제 Canvas 인스턴스 URL(canvas_url)을 사용하여 endpoint 생성
-    def build_authorization_url(issuer:, login_hint:, target_link_uri:, state:, nonce:, lti_message_hint: nil)
-      client_id = Lti::PlatformConfig.client_id_for(issuer)
+    def build_authorization_url(issuer:, login_hint:, target_link_uri:, state:, nonce:, lti_message_hint: nil, request_client_id: nil)
+      client_id = Lti::PlatformConfig.client_id_for(issuer, request_client_id)
       
       # Canvas Open Source의 경우 실제 Canvas 인스턴스 URL 사용
       # iss는 https://canvas.instructure.com이지만, 실제 endpoint는 canvas_url을 사용
-      canvas_url = Lti::PlatformConfig.canvas_url_for(issuer)
+      canvas_url = Lti::PlatformConfig.canvas_url_for(issuer, request_client_id)
       
       # Canvas Authorization Endpoint
       # 형식: {canvas_url}/api/lti/authorize_redirect
