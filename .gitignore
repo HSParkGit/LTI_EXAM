@@ -82,3 +82,6 @@ Thumbs.db
 
 # Ignore Spring files.
 /spring/*.pid
+
+# Ignore Claude Code config.
+.claude/
