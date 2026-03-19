@@ -1,0 +1,68 @@
+<div class="form-row">
+  <div class="form-column-left">
+    <label>출결 허용</label>
+  </div>
+  <div class="form-column-right">
+    <div class="checkbox-group">
+      <label class="checkbox-label">
+        <%= form.check_box :allow_attendance %>
+        <span>출결 허용</span>
+      </label>
+    </div>
+    <div class="checkbox-group">
+      <label class="checkbox-label">
+        <%= form.check_box :allow_tardiness %>
+        <span>지각 허용</span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-column-left">
+    <label>필요 진도율</label>
+  </div>
+  <div class="form-column-right">
+    <%= form.number_field :percent_required, class: 'input-small', min: 0, max: 100, placeholder: '80' %>
+    <span class="hint-inline">%</span>
+    <p class="hint-text">출석 인정을 위한 최소 시청율입니다.</p>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-column-left">
+    <label>열람 시작</label>
+  </div>
+  <div class="form-column-right">
+    <%= form.datetime_local_field :unlock_at, class: 'input-datetime' %>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-column-left">
+    <label>열람 종료</label>
+  </div>
+  <div class="form-column-right">
+    <%= form.datetime_local_field :lock_at, class: 'input-datetime' %>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-column-left">
+    <label>출석 마감</label>
+  </div>
+  <div class="form-column-right">
+    <%= form.datetime_local_field :attendance_finish_at, class: 'input-datetime' %>
+    <p class="hint-text">이 시간까지 진도율을 달성하면 출석으로 인정됩니다.</p>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-column-left">
+    <label>지각 마감</label>
+  </div>
+  <div class="form-column-right">
+    <%= form.datetime_local_field :tardiness_finish_at, class: 'input-datetime' %>
+    <p class="hint-text">출석 마감 후 이 시간까지 진도율을 달성하면 지각으로 인정됩니다.</p>
+  </div>
+</div>

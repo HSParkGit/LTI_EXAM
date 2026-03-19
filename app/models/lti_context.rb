@@ -15,7 +15,12 @@
 class LtiContext < ApplicationRecord
   belongs_to :lti_platform, foreign_key: :platform_iss, primary_key: :iss
   has_many :projects, dependent: :destroy
+  has_many :attendance_sessions, dependent: :destroy
   
+  def sync_needed?
+    last_synced_at.nil? || last_synced_at < 10.minutes.ago
+  end
+
   validates :context_id, presence: true
   validates :context_type, presence: true
   validates :platform_iss, presence: true

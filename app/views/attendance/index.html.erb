@@ -1,46 +1,356 @@
 <div class="attendance-container">
-  <header class="attendance-header">
-    <h1>Attendance</h1>
-    <p class="course-title"><%= @course_title %></p>
-  </header>
-
-  <div class="attendance-content">
-    <% if @user_role == :instructor %>
-      <p>교수용 출결 관리 페이지입니다.</p>
-      <!-- TODO: 출결 관리 UI -->
-    <% else %>
-      <p>학생용 출결 확인 페이지입니다.</p>
-      <!-- TODO: 출결 확인 UI -->
+  <div class="course-header">
+    <% if @course_label.present? %>
+      <span class="course-code-badge"><%= @course_label %></span>
     <% end %>
+    <div class="course-header-info">
+      <span class="course-header-title"><%= @course_title %></span>
+      <% if @instructor_names.present? %>
+        <span class="course-header-instructor"><%= @instructor_names %></span>
+      <% end %>
+    </div>
   </div>
+
+  <% if @user_role == :instructor %>
+    <div class="tab-nav">
+      <%= link_to 'By Content', attendance_index_path, class: 'tab active' %>
+      <%= link_to 'By Student', student_lectures_attendance_index_path, class: 'tab' %>
+    </div>
+  <% end %>
+
+  <% if flash[:notice] %>
+    <div class="alert alert-success"><%= flash[:notice] %></div>
+  <% end %>
+
+  <% if flash[:error] %>
+    <div class="alert alert-danger"><%= flash[:error] %></div>
+  <% end %>
+
+  <!-- Sessions Table -->
+  <% if @sessions_by_week.present? && @sessions_by_week.any? %>
+    <table class="attendance-table">
+      <thead>
+        <tr>
+          <th class="col-week">Week</th>
+          <th class="col-title">Lecture Title</th>
+          <th class="col-type">Type</th>
+          <% if @user_role == :instructor %>
+            <th class="col-date">Standard Date</th>
+            <th class="col-date">Due Date</th>
+            <th class="col-stats">Present</th>
+            <th class="col-stats">Excused</th>
+            <th class="col-stats">Late</th>
+            <th class="col-stats">Absent</th>
+            <th class="col-stats">Pending</th>
+            <th class="col-rate">Attendance Rate</th>
+          <% else %>
+            <th class="col-status">내 출결</th>
+          <% end %>
+          <th class="col-actions"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @sessions_by_week.keys.sort.each do |week| %>
+          <% @sessions_by_week[week].each do |data| %>
+            <% session = data[:session] %>
+            <% stats = data[:stats] %>
+            <tr>
+              <td class="col-week">
+                <div class="week-label">Week <%= week %></div>
+                <div class="lesson-label">Lesson <%= session.lesson_id %></div>
+              </td>
+              <td class="col-title">
+                <%= link_to session.title.presence || "#{week}주차 #{session.lesson_id}차시",
+                    attendance_path(session), class: 'session-link' %>
+              </td>
+              <td class="col-type"><%= session.attendance_type.upcase %></td>
+              <% if @user_role == :instructor %>
+                <td class="col-date"><%= data[:class_time] %></td>
+                <td class="col-date"><%= data[:due] %></td>
+                <td class="col-stats"><%= stats[:present] || 0 %></td>
+                <td class="col-stats"><%= stats[:excused] || 0 %></td>
+                <td class="col-stats"><%= stats[:late] || 0 %></td>
+                <td class="col-stats"><%= stats[:absent] || 0 %></td>
+                <td class="col-stats"><%= stats[:pending] || 0 %></td>
+                <td class="col-rate"><span class="rate-badge"><%= data[:attendance_rate] %>%</span></td>
+              <% else %>
+                <td class="col-status">
+                  <% my_record = data[:my_record] %>
+                  <% my_status = data[:my_status] %>
+                  <% if my_record %>
+                    <%= attendance_state_badge(my_record.attendance_state) %>
+                  <% elsif my_status %>
+                    <%= attendance_status_badge(my_status) %>
+                  <% else %>
+                    <span class="badge badge-none">-</span>
+                  <% end %>
+                </td>
+              <% end %>
+              <td class="col-actions">
+                <%= link_to 'Manage Attendance', attendance_path(session), class: 'btn-link' %>
+              </td>
+            </tr>
+          <% end %>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <div class="empty-state">
+      <p>등록된 출결 세션이 없습니다.</p>
+      <% if @user_role == :instructor %>
+        <p>Canvas에 Panopto/Zoom 콘텐츠를 추가하면 자동으로 세션이 생성됩니다.</p>
+      <% end %>
+    </div>
+  <% end %>
 </div>
 
 <style>
   .attendance-container {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
-    padding: 20px;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
 
-  .attendance-header {
-    margin-bottom: 24px;
+  /* Course Header (Canvas 원본 스타일) */
+  .course-header {
+    background-color: #f0f4f8;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
   }
 
-  .attendance-header h1 {
-    font-size: 24px;
+  .course-code-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    background-color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #333;
+    border-radius: 99px;
+    white-space: nowrap;
+  }
+
+  .course-header-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .course-header-title {
+    font-size: 1.125rem;
     font-weight: 600;
-    margin: 0 0 8px 0;
+    color: #212529;
   }
 
-  .course-title {
-    color: #6B7280;
-    margin: 0;
+  .course-header-instructor {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1a4d8f;
   }
 
-  .attendance-content {
+  .tab-nav {
+    display: flex;
+    gap: 0;
+    margin-bottom: 2rem;
+  }
+
+  .tab {
+    padding: 0.5rem 1.25rem;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #333;
+    border: 1px solid #adb5bd;
+    background-color: #f8f9fa;
+  }
+
+  .tab:first-child {
+    border-radius: 0.375rem 0 0 0.375rem;
+  }
+
+  .tab:last-child {
+    border-radius: 0 0.375rem 0.375rem 0;
+    border-left: none;
+  }
+
+  .tab.active {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+  }
+
+  .tab:hover:not(.active) {
+    background-color: #f8f9fa;
+  }
+
+  .attendance-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    table-layout: auto;
+  }
+
+  .attendance-table thead {
+    background-color: #f0f0f0;
+  }
+
+  .attendance-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+  }
+
+  .attendance-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #e9ecef;
+    vertical-align: middle;
+  }
+
+  .attendance-table tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+
+  .col-week { white-space: nowrap; }
+  .col-title { width: 100%; }
+  .col-type { white-space: nowrap; text-align: center; }
+  .col-date { white-space: nowrap; font-size: 0.8rem; color: #495057; }
+  .col-stats { white-space: nowrap; text-align: center; }
+  .col-rate { white-space: nowrap; text-align: center; }
+  .col-status { white-space: nowrap; text-align: center; }
+  .col-actions { white-space: nowrap; text-align: right; }
+
+  .week-label {
+    font-weight: 600;
+    color: #212529;
+  }
+
+  .lesson-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+  }
+
+  .rate-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid #93c5fd;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #1e40af;
+    background-color: #eff6ff;
+  }
+
+  .session-link {
+    color: #212529;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .session-link:hover {
+    color: #0d6efd;
+    text-decoration: underline;
+  }
+
+  .btn-link {
+    color: #0d6efd;
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  .btn-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .badge-vod {
+    background-color: #e7f1ff;
+    color: #0d6efd;
+  }
+
+  .badge-live {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .badge-present, .state-present {
+    background-color: #d1e7dd;
+    color: #0f5132;
+  }
+
+  .badge-late, .state-late {
+    background-color: #fff3cd;
+    color: #664d03;
+  }
+
+  .badge-absent, .state-absent {
+    background-color: #f8d7da;
+    color: #842029;
+  }
+
+  .badge-excused, .state-excused {
+    background-color: #e2e3e5;
+    color: #41464b;
+  }
+
+  .badge-pending, .state-pending {
+    background-color: #f8f9fa;
+    color: #6c757d;
+  }
+
+  .badge-none {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
     background: white;
     border-radius: 8px;
-    padding: 24px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .alert {
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .alert-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #badbcc;
+  }
+
+  .alert-danger {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
   }
 </style>

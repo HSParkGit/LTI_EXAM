@@ -16,8 +16,21 @@ Rails.application.routes.draw do
   # Projects Routes
   resources :projects, only: [:index, :show, :new, :create, :edit, :update, :destroy]
 
-  # Attendance Routes
-  resources :attendance, only: [:index, :show, :new, :create, :edit, :update, :destroy]
+  # Attendance Routes (세션 생성/삭제는 Auto-Sync로 자동 관리)
+  resources :attendance, only: [:index, :show, :edit, :update] do
+    member do
+      patch :update_attendance
+      patch :bulk_update_attendance
+      get :student_history
+      get :download_excel
+    end
+    collection do
+      get :student_detail
+      get :my_attendance
+      get :student_lectures
+      get :student_lectures_excel
+    end
+  end
 
   # Admin Routes (LTI Platform 관리)
   namespace :admin do

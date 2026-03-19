@@ -1,0 +1,406 @@
+<div class="attendance-container">
+  <div class="course-header">
+    <% if @course_label.present? %>
+      <span class="course-code-badge"><%= @course_label %></span>
+    <% end %>
+    <div class="course-header-info">
+      <span class="course-header-title"><%= @course_title %></span>
+      <% if @instructor_names.present? %>
+        <span class="course-header-instructor"><%= @instructor_names %></span>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="tab-row">
+    <div class="tab-nav">
+      <%= link_to 'By Content', attendance_index_path, class: 'tab' %>
+      <%= link_to 'By Student', student_lectures_attendance_index_path, class: 'tab active' %>
+    </div>
+    <% if @students.present? && @lesson_slots_by_week.present? %>
+      <a href="<%= student_lectures_excel_attendance_index_path %>" class="btn-excel">
+        <span class="excel-icon">&darr;</span> Download Excel
+      </a>
+    <% end %>
+  </div>
+
+  <% if @students.blank? || @lesson_slots_by_week.blank? %>
+    <div class="empty-state">
+      <p>수강생 또는 출결 세션이 없습니다.</p>
+    </div>
+  <% else %>
+    <div class="matrix-wrapper">
+      <table class="matrix-table" id="studentMatrix">
+        <thead>
+          <tr>
+            <th class="sticky-col col-checkbox" rowspan="2">
+              <input type="checkbox" id="selectAll" title="전체 선택">
+            </th>
+            <th class="sticky-col col-name sortable" rowspan="2" data-sort="name">
+              Name <span class="sort-icon">&#8597;</span>
+            </th>
+            <th class="sticky-col col-student-number" rowspan="2">Student Number</th>
+            <th class="sticky-col col-stat-present" rowspan="2">Present</th>
+            <th class="sticky-col col-stat-late" rowspan="2">Late</th>
+            <th class="sticky-col col-stat-absent" rowspan="2">Absent</th>
+            <th class="sticky-col col-stat-pending" rowspan="2">Pending</th>
+            <% @lesson_slots_by_week.each do |week, slots| %>
+              <th class="week-header" colspan="<%= slots.count %>">Week <%= week %></th>
+            <% end %>
+          </tr>
+          <tr>
+            <% @lesson_slots_by_week.each do |_week, slots| %>
+              <% slots.each do |slot| %>
+                <th class="lesson-header" title="Lesson <%= slot[:lesson_id] %> (<%= slot[:sessions].count %> items)">
+                  Lesson <%= slot[:lesson_id] %>
+                </th>
+              <% end %>
+            <% end %>
+          </tr>
+        </thead>
+        <tbody>
+          <% @students.each do |student| %>
+            <tr data-name="<%= student[:name] %>">
+              <td class="sticky-col col-checkbox">
+                <input type="checkbox" class="row-check" value="<%= student[:login_id] || student[:email] %>">
+              </td>
+              <td class="sticky-col col-name" title="<%= student[:name] %>">
+                <%= student[:name] %>
+              </td>
+              <td class="sticky-col col-student-number"><%= student[:login_id] %></td>
+              <td class="sticky-col col-stat-present"><%= student[:stats][:present] %></td>
+              <td class="sticky-col col-stat-late"><%= student[:stats][:late] %></td>
+              <td class="sticky-col col-stat-absent"><%= student[:stats][:absent] %></td>
+              <td class="sticky-col col-stat-pending"><%= student[:stats][:pending] %></td>
+              <% @lesson_slots_by_week.each do |_week, slots| %>
+                <% slots.each do |slot| %>
+                  <% slot_key = "#{slot[:week]}-#{slot[:lesson_id]}" %>
+                  <% cell = student[:slot_statuses][slot_key] %>
+                  <% status = cell ? cell[:status] : 'pending' %>
+                  <% items_json = (cell ? cell[:items] : []).to_json %>
+                  <td class="cell-status cell-<%= status %> cell-clickable"
+                      title="<%= attendance_status_label(status) %>"
+                      data-items="<%= ERB::Util.html_escape(items_json) %>">
+                    <span class="status-icon icon-<%= status %>"><%= status_icon(status) %></span>
+                  </td>
+                <% end %>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</div>
+
+<!-- Popover (positioned dynamically) -->
+<div id="cellPopover" class="popover" style="display:none;">
+  <div class="popover-content" id="popoverContent"></div>
+</div>
+
+<style>
+  .attendance-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .course-header {
+    background-color: #f0f4f8;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .course-code-badge {
+    display: inline-flex; align-items: center;
+    padding: 0.375rem 0.75rem; background-color: white;
+    font-size: 0.875rem; font-weight: 500; color: #333;
+    border-radius: 99px; white-space: nowrap;
+  }
+
+  .course-header-info { display: flex; align-items: center; gap: 1rem; }
+  .course-header-title { font-size: 1.125rem; font-weight: 600; color: #212529; }
+  .course-header-instructor { font-size: 0.875rem; font-weight: 500; color: #1a4d8f; margin: 0; }
+
+  .tab-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+  .tab-nav { display: flex; gap: 0; }
+
+  .tab {
+    padding: 0.5rem 1.25rem; text-decoration: none; font-weight: 500;
+    font-size: 0.875rem; color: #333; border: 1px solid #adb5bd; background-color: #f8f9fa;
+  }
+  .tab:first-child { border-radius: 0.375rem 0 0 0.375rem; }
+  .tab:last-child { border-radius: 0 0.375rem 0.375rem 0; border-left: none; }
+  .tab.active { background-color: #0d6efd; color: white; border-color: #0d6efd; }
+  .tab:hover:not(.active) { background-color: #e9ecef; }
+
+  .btn-excel {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.5rem 1rem; border: 1px solid #adb5bd; border-radius: 0.375rem;
+    background-color: white; color: #333; text-decoration: none;
+    font-size: 0.875rem; font-weight: 500;
+  }
+  .btn-excel:hover { background-color: #f8f9fa; border-color: #6c757d; }
+
+  .empty-state {
+    text-align: center; padding: 4rem 2rem; color: #6c757d;
+    background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  /* Matrix */
+  .matrix-wrapper {
+    overflow: auto; max-height: 600px; /* JS가 실제 높이로 덮어씀 */
+    background: white; border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08); position: relative;
+  }
+
+  .matrix-table { border-collapse: separate; border-spacing: 0; width: auto; }
+
+  .matrix-table th, .matrix-table td {
+    padding: 0.6rem 0.75rem; font-size: 0.825rem;
+    border-bottom: 1px solid #f0f0f0; border-right: none; white-space: nowrap;
+  }
+
+  .matrix-table thead th {
+    background-color: #fafafa; font-weight: 600; color: #495057;
+    text-align: center; position: sticky; z-index: 10;
+    border-bottom: none;
+  }
+
+  .matrix-table thead tr:first-child th { top: 0; }
+  .matrix-table thead tr:nth-child(2) th {
+    top: var(--header-row1-h, 35px);
+    box-shadow: 0 -1px 0 #e0e0e0, 0 1px 0 #e0e0e0;
+  }
+  /* rowspan="2" 좌측 셀: 하단 경계선만 */
+  .matrix-table thead tr:first-child th[rowspan] {
+    box-shadow: 0 1px 0 #e0e0e0;
+  }
+
+  .sticky-col { position: sticky; background-color: white; z-index: 3; }
+  thead .sticky-col { background-color: #fafafa; z-index: 20; }
+  thead tr:first-child .sticky-col { top: 0; }
+  thead tr:nth-child(2) .sticky-col { top: var(--header-row1-h, 35px); }
+
+  .col-checkbox { left: 0; width: 32px; min-width: 32px; text-align: center; }
+  .col-name {
+    left: 32px; width: 120px; min-width: 120px; text-align: left;
+    white-space: normal !important; word-break: break-word; line-height: 1.4;
+  }
+  .col-student-number {
+    left: 152px; width: 100px; min-width: 100px; text-align: center;
+    font-size: 0.8rem; color: #495057;
+  }
+  /* Sticky: Checkbox(32) + Name(120) + StudentNum(100) = 252 */
+  .col-stat-present, .col-stat-late, .col-stat-absent, .col-stat-pending {
+    width: 52px; min-width: 52px; text-align: center; font-size: 0.8rem;
+  }
+  .col-stat-present { left: 252px; }
+  .col-stat-late { left: 304px; }
+  .col-stat-absent { left: 356px; }
+  .col-stat-pending { left: 408px; }
+
+  .week-header { border-bottom: 1px solid #e0e0e0; background-color: #f5f5f5; font-size: 0.825rem; }
+  .lesson-header { font-size: 0.75rem; width: 72px; min-width: 72px; max-width: 72px; color: #6c757d; }
+
+  .sortable { cursor: pointer; user-select: none; }
+  .sortable:hover { background-color: #f0f0f0; }
+  .sort-icon { font-size: 0.65rem; color: #999; margin-left: 0.125rem; }
+
+  .cell-status { text-align: center; width: 72px; min-width: 72px; max-width: 72px; }
+  .cell-clickable { cursor: pointer; transition: background-color 0.15s; }
+  .cell-clickable:hover { background-color: #f0f4f8; }
+
+  .cell-present, .cell-late, .cell-absent, .cell-excused, .cell-pending {
+    background-color: transparent;
+  }
+
+  .status-icon { display: inline-block; font-weight: 700; font-size: 1rem; }
+  .icon-present { color: #0B874B; }
+  .icon-late { color: #e6a817; }
+  .icon-absent { color: #dc3545; }
+  .icon-excused { color: #6c757d; }
+  .icon-pending { color: #d0d0d0; }
+
+  .matrix-table tbody tr:nth-child(even) td { background-color: #fafbfc; }
+  .matrix-table tbody tr:nth-child(even) .sticky-col { background-color: #fafbfc; }
+  .matrix-table tbody tr:hover td { background-color: #f0f4f8; }
+  .matrix-table tbody tr:hover .sticky-col { background-color: #f0f4f8; }
+
+  /* Popover */
+  .popover {
+    position: fixed;
+    z-index: 100;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    border: 1px solid #e9ecef;
+    min-width: 200px;
+    max-width: 300px;
+  }
+
+  .popover-content { padding: 0.5rem; }
+
+  .popover-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+
+  .popover-item + .popover-item {
+    border-top: 1px solid #f0f0f0;
+  }
+
+  .popover-item-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #212529;
+    max-width: 150px;
+  }
+
+  .popover-item-right {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  .popover-type {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #6c757d;
+    padding: 0.0625rem 0.25rem;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Matrix wrapper 높이 계산 (iframe 내에서 sticky 작동하도록)
+  var wrapper = document.querySelector('.matrix-wrapper');
+  if (wrapper) {
+    function setWrapperHeight() {
+      var rect = wrapper.getBoundingClientRect();
+      var available = window.innerHeight - rect.top - 16;
+      wrapper.style.maxHeight = Math.max(300, available) + 'px';
+    }
+    setWrapperHeight();
+    window.addEventListener('resize', setWrapperHeight);
+
+    // 1행 실제 높이 측정 → 2행 top 값에 반영
+    var firstRow = wrapper.querySelector('thead tr:first-child');
+    if (firstRow) {
+      var h = firstRow.getBoundingClientRect().height;
+      wrapper.querySelector('table').style.setProperty('--header-row1-h', h + 'px');
+    }
+  }
+
+  // Select All
+  var selectAll = document.getElementById('selectAll');
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      document.querySelectorAll('.row-check').forEach(function(cb) { cb.checked = selectAll.checked; });
+    });
+  }
+
+  // Name Sort
+  var sortHeader = document.querySelector('.sortable[data-sort="name"]');
+  var sortDir = 'asc';
+  if (sortHeader) {
+    sortHeader.addEventListener('click', function() {
+      var tbody = document.querySelector('#studentMatrix tbody');
+      var rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort(function(a, b) {
+        var nameA = (a.dataset.name || '').toLowerCase();
+        var nameB = (b.dataset.name || '').toLowerCase();
+        return sortDir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      });
+      rows.forEach(function(row) { tbody.appendChild(row); });
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    });
+  }
+
+  // Cell Click → Popover
+  var popover = document.getElementById('cellPopover');
+  var popoverContent = document.getElementById('popoverContent');
+  var activeCell = null;
+
+  var statusIcons = {
+    present: '<span class="status-icon icon-present">●</span>',
+    late: '<span class="status-icon icon-late">▲</span>',
+    absent: '<span class="status-icon icon-absent">✕</span>',
+    excused: '<span class="status-icon icon-excused">●</span>',
+    pending: '<span class="status-icon icon-pending">—</span>'
+  };
+
+  function closePopover() {
+    popover.style.display = 'none';
+    activeCell = null;
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.cell-clickable') && !e.target.closest('.popover')) {
+      closePopover();
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closePopover();
+  });
+
+  document.querySelectorAll('.cell-clickable').forEach(function(cell) {
+    cell.addEventListener('click', function(e) {
+      e.stopPropagation();
+
+      if (activeCell === this) { closePopover(); return; }
+      activeCell = this;
+
+      var items = JSON.parse(this.dataset.items || '[]');
+      if (items.length === 0) { closePopover(); return; }
+
+      var html = '';
+      items.forEach(function(item) {
+        var title = item.title || 'Untitled';
+        var icon = statusIcons[item.status] || statusIcons.pending;
+        html += '<div class="popover-item">';
+        html += '<span class="popover-item-title" title="' + title + '">' + title + '</span>';
+        html += '<span class="popover-item-right">';
+        html += '<span class="popover-type">' + item.type.toUpperCase() + '</span>';
+        html += icon;
+        html += '</span></div>';
+      });
+
+      popoverContent.innerHTML = html;
+      popover.style.display = 'block';
+
+      // Position near the cell (viewport 기준)
+      var cellRect = this.getBoundingClientRect();
+      var popRect = popover.getBoundingClientRect();
+      var left = cellRect.left;
+      var top = cellRect.bottom + 4;
+
+      // 화면 아래로 넘치면 셀 위에 표시
+      if (top + popRect.height > window.innerHeight) {
+        top = cellRect.top - popRect.height - 4;
+      }
+      // 화면 오른쪽으로 넘치면 왼쪽으로 밀기
+      if (left + popRect.width > window.innerWidth) {
+        left = window.innerWidth - popRect.width - 8;
+      }
+
+      popover.style.left = left + 'px';
+      popover.style.top = top + 'px';
+    });
+  });
+});
+</script>

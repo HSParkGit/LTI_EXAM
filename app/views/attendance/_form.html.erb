@@ -1,0 +1,148 @@
+<%= form_with model: @session, url: url, local: true, html: { id: 'attendance-session-form' } do |form| %>
+  <div class="form-card">
+    <!-- Basic Info -->
+    <div class="form-section">
+      <h3 class="form-section-title">기본 정보</h3>
+
+      <div class="form-row">
+        <div class="form-column-left">
+          <label>주차 <span class="required">*</span></label>
+        </div>
+        <div class="form-column-right">
+          <%= form.number_field :week, class: 'input-small', min: 1, max: 99, required: true %>
+          <span class="hint-inline">주차</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-column-left">
+          <label>차시 <span class="required">*</span></label>
+        </div>
+        <div class="form-column-right">
+          <%= form.number_field :lesson_id, class: 'input-small', min: 1, max: 99, required: true %>
+          <span class="hint-inline">차시</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-column-left">
+          <label>제목</label>
+        </div>
+        <div class="form-column-right">
+          <%= form.text_field :title, class: 'input-full', placeholder: '예: 1주차 1차시 - OT' %>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-column-left">
+          <label>유형 <span class="required">*</span></label>
+        </div>
+        <div class="form-column-right">
+          <div class="radio-group">
+            <label class="radio-label">
+              <%= form.radio_button :attendance_type, 'vod', checked: @session.vod? || @session.new_record?, id: 'type_vod' %>
+              <span>VOD (Panopto)</span>
+            </label>
+            <label class="radio-label">
+              <%= form.radio_button :attendance_type, 'live', checked: @session.live?, id: 'type_live' %>
+              <span>LIVE (Zoom)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- VOD: Panopto 아이템 드롭다운 -->
+      <div id="panopto-select" class="form-row" style="<%= 'display: none;' if @session.live? %>">
+        <div class="form-column-left">
+          <label>Canvas 연동</label>
+        </div>
+        <div class="form-column-right">
+          <% if @panopto_items.present? && @panopto_items.any? %>
+            <%= form.select :content_tag_id,
+                options_for_select(
+                  @panopto_items.map { |item| ["#{item['module_name']} > #{item['title']}", item['id']] },
+                  @session.content_tag_id
+                ),
+                { include_blank: '선택 안 함' },
+                { class: 'form-select', id: 'content_tag_panopto' } %>
+            <p class="hint-text">Panopto External Tool과 연동합니다.</p>
+          <% else %>
+            <p class="hint-text">연동 가능한 Panopto 아이템이 없습니다.</p>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- LIVE: Zoom 아이템 드롭다운 -->
+      <div id="zoom-select" class="form-row" style="<%= 'display: none;' unless @session.live? %>">
+        <div class="form-column-left">
+          <label>Canvas 연동</label>
+        </div>
+        <div class="form-column-right">
+          <% if @zoom_items.present? && @zoom_items.any? %>
+            <%= form.select :content_tag_id,
+                options_for_select(
+                  @zoom_items.map { |item| ["#{item['module_name']} > #{item['title']}", item['id']] },
+                  @session.content_tag_id
+                ),
+                { include_blank: '선택 안 함' },
+                { class: 'form-select', id: 'content_tag_zoom' } %>
+            <p class="hint-text">Zoom External URL과 연동합니다.</p>
+          <% else %>
+            <p class="hint-text">연동 가능한 Zoom 아이템이 없습니다.</p>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <!-- VOD Settings -->
+    <div id="vod-settings" class="form-section setting-section" style="<%= 'display: none;' if @session.live? %>">
+      <h3 class="form-section-title">VOD 설정</h3>
+      <%= form.fields_for :vod_setting, @session.vod_setting || @session.build_vod_setting do |vod| %>
+        <%= render 'vod_setting_fields', form: vod %>
+      <% end %>
+    </div>
+
+    <!-- LIVE Settings -->
+    <div id="live-settings" class="form-section setting-section" style="<%= 'display: none;' unless @session.live? %>">
+      <h3 class="form-section-title">LIVE 설정</h3>
+      <%= form.fields_for :live_setting, @session.live_setting || @session.build_live_setting do |live| %>
+        <%= render 'live_setting_fields', form: live %>
+      <% end %>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions">
+      <%= link_to 'Cancel', attendance_index_path, class: 'btn-cancel' %>
+      <%= form.submit '저장', class: 'btn-primary' %>
+    </div>
+  </div>
+<% end %>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const typeVod = document.getElementById('type_vod');
+    const typeLive = document.getElementById('type_live');
+    const vodSettings = document.getElementById('vod-settings');
+    const liveSettings = document.getElementById('live-settings');
+
+    const panoptoSelect = document.getElementById('panopto-select');
+    const zoomSelect = document.getElementById('zoom-select');
+
+    function toggleSettings() {
+      if (typeVod.checked) {
+        vodSettings.style.display = 'block';
+        liveSettings.style.display = 'none';
+        if (panoptoSelect) panoptoSelect.style.display = '';
+        if (zoomSelect) zoomSelect.style.display = 'none';
+      } else {
+        vodSettings.style.display = 'none';
+        liveSettings.style.display = 'block';
+        if (panoptoSelect) panoptoSelect.style.display = 'none';
+        if (zoomSelect) zoomSelect.style.display = '';
+      }
+    }
+
+    typeVod.addEventListener('change', toggleSettings);
+    typeLive.addEventListener('change', toggleSettings);
+  });
+</script>

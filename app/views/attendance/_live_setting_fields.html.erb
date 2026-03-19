@@ -1,0 +1,60 @@
+<div class="form-row">
+  <div class="form-column-left">
+    <label>출결 허용</label>
+  </div>
+  <div class="form-column-right">
+    <div class="checkbox-group">
+      <label class="checkbox-label">
+        <%= form.check_box :allow_attendance %>
+        <span>출결 허용</span>
+      </label>
+    </div>
+    <div class="checkbox-group">
+      <label class="checkbox-label">
+        <%= form.check_box :allow_tardiness %>
+        <span>지각 허용</span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-column-left">
+    <label>출석 기준</label>
+  </div>
+  <div class="form-column-right">
+    <%= form.number_field :attendance_threshold, class: 'input-small', min: 1, max: 100, placeholder: '80' %>
+    <span class="hint-inline">%</span>
+    <p class="hint-text">전체 진행 시간 대비 참여 시간이 이 비율 이상이면 출석으로 인정됩니다.</p>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-column-left">
+    <label>지각 기준</label>
+  </div>
+  <div class="form-column-right">
+    <%= form.number_field :tardiness_threshold, class: 'input-small', min: 1, max: 100, placeholder: '50' %>
+    <span class="hint-inline">%</span>
+    <p class="hint-text">참여 시간이 이 비율 이상 출석 기준 미만이면 지각으로 인정됩니다.</p>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-column-left">
+    <label>시작 시간</label>
+  </div>
+  <div class="form-column-right">
+    <%= form.datetime_local_field :start_time, class: 'input-datetime' %>
+  </div>
+</div>
+
+<div class="form-row">
+  <div class="form-column-left">
+    <label>진행 시간</label>
+  </div>
+  <div class="form-column-right">
+    <%= form.number_field :duration, class: 'input-small', min: 60, placeholder: '3600' %>
+    <span class="hint-inline">초 (예: 3600 = 1시간)</span>
+  </div>
+</div>

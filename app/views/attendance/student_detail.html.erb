@@ -1,0 +1,251 @@
+<div class="attendance-container">
+  <div class="attendance-header">
+    <div>
+      <h1>출결 현황</h1>
+      <% if @course_title.present? %>
+        <p class="course-name"><%= @course_title %></p>
+      <% end %>
+    </div>
+    <%= link_to 'Back', attendance_index_path, class: 'btn-link' %>
+  </div>
+
+  <% if @attendance %>
+    <!-- Student Info -->
+    <div class="student-info-card">
+      <div class="student-name-large">
+        <%= @attendance[:user_name] || @attendance[:user_identifier] || '학생' %>
+      </div>
+      <% if @attendance[:stats] %>
+        <div class="stats-grid">
+          <div class="stat-item stat-present">
+            <span class="stat-value"><%= @attendance[:stats][:present] %></span>
+            <span class="stat-label">출석</span>
+          </div>
+          <div class="stat-item stat-late">
+            <span class="stat-value"><%= @attendance[:stats][:late] %></span>
+            <span class="stat-label">지각</span>
+          </div>
+          <div class="stat-item stat-absent">
+            <span class="stat-value"><%= @attendance[:stats][:absent] %></span>
+            <span class="stat-label">결석</span>
+          </div>
+          <div class="stat-item stat-excused">
+            <span class="stat-value"><%= @attendance[:stats][:excused] %></span>
+            <span class="stat-label">공결</span>
+          </div>
+          <div class="stat-item stat-pending">
+            <span class="stat-value"><%= @attendance[:stats][:pending] %></span>
+            <span class="stat-label">미결</span>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <!-- Attendance by Week -->
+    <% if @attendance[:by_week].present? && @attendance[:by_week].any? %>
+      <% @attendance[:by_week].keys.sort.each do |week| %>
+        <div class="week-section">
+          <h2 class="section-title"><%= week %>주차</h2>
+          <div class="records-list">
+            <% @attendance[:by_week][week].each do |data| %>
+              <% record = data[:record] %>
+              <% session = data[:session] %>
+              <% status = data[:status] %>
+              <% status_label = data[:status_label] %>
+              <div class="record-card">
+                <div class="record-info">
+                  <span class="record-lesson"><%= session.lesson_id %>차시</span>
+                  <span class="record-title"><%= session.title.presence || "#{week}주차 #{session.lesson_id}차시" %></span>
+                  <%= attendance_type_badge(session.attendance_type) %>
+                </div>
+                <div class="record-state-area">
+                  <% if record %>
+                    <%= attendance_state_badge(record.attendance_state) %>
+                  <% else %>
+                    <%= attendance_status_badge(status) %>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    <% else %>
+      <div class="empty-state">
+        <p>출결 기록이 없습니다.</p>
+      </div>
+    <% end %>
+  <% else %>
+    <div class="empty-state">
+      <p>학생 정보를 찾을 수 없습니다.</p>
+    </div>
+  <% end %>
+</div>
+
+<style>
+  .attendance-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .attendance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #0d6efd;
+  }
+
+  .attendance-header h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #212529;
+    margin: 0 0 0.25rem 0;
+  }
+
+  .course-name {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0;
+  }
+
+  .btn-link {
+    color: #0d6efd;
+    text-decoration: none;
+    padding: 0.5rem;
+  }
+
+  .btn-link:hover {
+    text-decoration: underline;
+  }
+
+  .student-info-card {
+    background: white;
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    text-align: center;
+  }
+
+  .student-name-large {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 1.5rem;
+  }
+
+  .stats-grid {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+  }
+
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem 1.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+  }
+
+  .stat-present .stat-value { color: #0B874B; }
+  .stat-late .stat-value { color: #ffc107; }
+  .stat-absent .stat-value { color: #dc3545; }
+  .stat-excused .stat-value { color: #6c757d; }
+  .stat-pending .stat-value { color: #adb5bd; }
+
+  .week-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .section-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 0.75rem;
+  }
+
+  .records-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .record-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .record-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .record-lesson {
+    font-weight: 500;
+    color: #495057;
+    min-width: 60px;
+  }
+
+  .record-title {
+    font-weight: 500;
+    color: #212529;
+  }
+
+  .record-state-area {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .record-detail {
+    font-size: 0.875rem;
+    color: #6c757d;
+  }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .badge-vod { background-color: #e7f1ff; color: #0d6efd; }
+  .badge-live { background-color: #fff3cd; color: #856404; }
+  .state-present { background-color: #d1e7dd; color: #0f5132; }
+  .state-late { background-color: #fff3cd; color: #664d03; }
+  .state-absent { background-color: #f8d7da; color: #842029; }
+  .state-excused { background-color: #e2e3e5; color: #41464b; }
+  .state-pending { background-color: #f8f9fa; color: #6c757d; }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #6c757d;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+</style>

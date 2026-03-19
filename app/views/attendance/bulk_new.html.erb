@@ -1,0 +1,416 @@
+<div class="attendance-form-container">
+  <div class="form-header">
+    <h1>Bulk Create Sessions</h1>
+    <% if @course_title.present? %>
+      <p class="course-name"><%= @course_title %></p>
+    <% end %>
+  </div>
+
+  <% if flash[:error] %>
+    <div class="alert alert-danger"><%= flash[:error] %></div>
+  <% end %>
+
+  <% if @modules.blank? || @modules.empty? %>
+    <div class="empty-state">
+      <p>Canvas Module에서 매핑 가능한 Panopto/Zoom 아이템이 없습니다.</p>
+      <p><%= link_to '돌아가기', attendance_index_path, class: 'btn-cancel' %></p>
+    </div>
+  <% else %>
+    <%= form_tag bulk_create_attendance_index_path, method: :post, id: 'bulk-create-form' do %>
+
+      <!-- Common Settings -->
+      <div class="form-card">
+        <div class="form-section">
+          <h3 class="form-section-title">VOD 공통 설정</h3>
+
+          <div class="form-row">
+            <div class="form-column-left">
+              <label>시청률 기준</label>
+            </div>
+            <div class="form-column-right">
+              <%= number_field_tag :percent_required, 80, class: 'input-small', min: 0, max: 100 %>
+              <span class="hint-inline">% 이상 시청 시 출석</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-column-left">
+              <label>출석 마감</label>
+            </div>
+            <div class="form-column-right">
+              <%= number_field_tag :attendance_deadline_days, 7, class: 'input-small', min: 0 %>
+              <span class="hint-inline">일 (모듈 공개일 기준, 0=무제한)</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-column-left">
+              <label>지각 마감</label>
+            </div>
+            <div class="form-column-right">
+              <%= number_field_tag :tardiness_deadline_days, 14, class: 'input-small', min: 0 %>
+              <span class="hint-inline">일 (0=지각 미허용)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 class="form-section-title">LIVE 공통 설정</h3>
+
+          <div class="form-row">
+            <div class="form-column-left">
+              <label>출석 기준</label>
+            </div>
+            <div class="form-column-right">
+              <%= number_field_tag :attendance_threshold, 80, class: 'input-small', min: 0, max: 100 %>
+              <span class="hint-inline">% 이상 참여 시 출석</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-column-left">
+              <label>지각 기준</label>
+            </div>
+            <div class="form-column-right">
+              <%= number_field_tag :tardiness_threshold, 50, class: 'input-small', min: 0, max: 100 %>
+              <span class="hint-inline">% 이상 참여 시 지각 (0=지각 미허용)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module Items Selection -->
+      <div class="form-card">
+        <div class="form-section">
+          <h3 class="form-section-title">
+            Canvas Module Items
+            <span class="select-actions">
+              <a href="#" id="select-all">전체 선택</a>
+              <a href="#" id="deselect-all">전체 해제</a>
+            </span>
+          </h3>
+
+          <% @modules.each do |mod| %>
+            <div class="module-group">
+              <div class="module-header">
+                <label class="checkbox-label module-checkbox">
+                  <input type="checkbox" class="module-select-all" data-module="<%= mod[:name] %>">
+                  <strong><%= mod[:name] %></strong>
+                  <span class="hint-inline">(<%= mod[:items].count %>개)</span>
+                  <% if mod[:unlock_at].present? %>
+                    <span class="hint-inline">| 공개: <%= Time.zone.parse(mod[:unlock_at]).strftime('%Y-%m-%d') rescue mod[:unlock_at] %></span>
+                  <% end %>
+                </label>
+              </div>
+              <div class="module-items">
+                <% mod[:items].each do |item| %>
+                  <label class="checkbox-label item-checkbox" data-module="<%= mod[:name] %>">
+                    <input type="checkbox" name="selected_item_ids[]" value="<%= item['id'] %>">
+                    <span class="item-type-badge <%= item['type'] == 'ExternalTool' ? 'badge-vod' : 'badge-live' %>">
+                      <%= item['type'] == 'ExternalTool' ? 'VOD' : 'LIVE' %>
+                    </span>
+                    <span><%= item['title'] %></span>
+                  </label>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="form-card">
+        <div class="form-actions">
+          <%= link_to 'Cancel', attendance_index_path, class: 'btn-cancel' %>
+          <button type="submit" class="btn-primary" id="bulk-submit-btn">
+            <span id="selected-count">0</span>개 세션 일괄 생성
+          </button>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('bulk-create-form');
+    if (!form) return;
+
+    const itemCheckboxes = form.querySelectorAll('input[name="selected_item_ids[]"]');
+    const moduleCheckboxes = form.querySelectorAll('.module-select-all');
+    const selectAll = document.getElementById('select-all');
+    const deselectAll = document.getElementById('deselect-all');
+    const countSpan = document.getElementById('selected-count');
+    const submitBtn = document.getElementById('bulk-submit-btn');
+
+    function updateCount() {
+      const checked = form.querySelectorAll('input[name="selected_item_ids[]"]:checked').length;
+      countSpan.textContent = checked;
+      submitBtn.disabled = checked === 0;
+    }
+
+    // Module-level select/deselect
+    moduleCheckboxes.forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var moduleName = this.dataset.module;
+        var items = form.querySelectorAll('.item-checkbox[data-module="' + moduleName + '"] input[type="checkbox"]');
+        items.forEach(function(item) { item.checked = cb.checked; });
+        updateCount();
+      });
+    });
+
+    // Item checkbox → sync module checkbox
+    itemCheckboxes.forEach(function(cb) {
+      cb.addEventListener('change', function() {
+        var moduleName = this.closest('.item-checkbox').dataset.module;
+        var items = form.querySelectorAll('.item-checkbox[data-module="' + moduleName + '"] input[type="checkbox"]');
+        var moduleCheckbox = form.querySelector('.module-select-all[data-module="' + moduleName + '"]');
+        if (moduleCheckbox) {
+          var allChecked = Array.from(items).every(function(i) { return i.checked; });
+          moduleCheckbox.checked = allChecked;
+        }
+        updateCount();
+      });
+    });
+
+    // Global select/deselect
+    selectAll.addEventListener('click', function(e) {
+      e.preventDefault();
+      itemCheckboxes.forEach(function(cb) { cb.checked = true; });
+      moduleCheckboxes.forEach(function(cb) { cb.checked = true; });
+      updateCount();
+    });
+
+    deselectAll.addEventListener('click', function(e) {
+      e.preventDefault();
+      itemCheckboxes.forEach(function(cb) { cb.checked = false; });
+      moduleCheckboxes.forEach(function(cb) { cb.checked = false; });
+      updateCount();
+    });
+
+    updateCount();
+  });
+</script>
+
+<style>
+  .attendance-form-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .form-header {
+    padding: 20px 0;
+  }
+
+  .form-header h1 {
+    font-size: 26px;
+    font-weight: 500;
+    margin: 0 0 0.25rem 0;
+    color: #212529;
+  }
+
+  .course-name {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0;
+  }
+
+  .form-card {
+    background: #fff;
+    border: 1px solid #c7cdd1;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .form-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .form-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .form-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #212529;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .select-actions {
+    margin-left: auto;
+    font-size: 0.8rem;
+    font-weight: 400;
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .select-actions a {
+    color: #0d6efd;
+    text-decoration: none;
+  }
+
+  .select-actions a:hover {
+    text-decoration: underline;
+  }
+
+  .form-row {
+    display: flex;
+    margin-bottom: 16px;
+  }
+
+  .form-column-left {
+    width: 150px;
+    padding-right: 20px;
+    padding-top: 8px;
+  }
+
+  .form-column-left label {
+    font-weight: 600;
+    color: #2d3b45;
+    font-size: 14px;
+  }
+
+  .form-column-right {
+    flex: 1;
+  }
+
+  .input-small {
+    width: 100px;
+    padding: 10px 12px;
+    border: 1px solid #c7cdd1;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+
+  .input-small:focus {
+    outline: none;
+    border-color: #0374B5;
+    box-shadow: 0 0 0 2px rgba(3, 116, 181, 0.2);
+  }
+
+  .hint-inline {
+    font-size: 14px;
+    color: #6c757d;
+    margin-left: 8px;
+  }
+
+  .module-group {
+    margin-bottom: 1.25rem;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .module-header {
+    background-color: #f8f9fa;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .module-items {
+    padding: 0.5rem 1rem 0.5rem 2.5rem;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .item-checkbox {
+    padding: 0.4rem 0;
+  }
+
+  .item-type-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .badge-vod {
+    background-color: #e7f1ff;
+    color: #0d6efd;
+  }
+
+  .badge-live {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .btn-cancel {
+    background-color: transparent;
+    color: #6c757d;
+    border: 1px solid #c7cdd1;
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .btn-cancel:hover {
+    background-color: #f8f9fa;
+    color: #6c757d;
+  }
+
+  .btn-primary {
+    background-color: #0374B5;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .btn-primary:hover {
+    background-color: #025a8c;
+  }
+
+  .btn-primary:disabled {
+    background-color: #adb5bd;
+    cursor: not-allowed;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .alert {
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+
+  .alert-danger {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+  }
+</style>
