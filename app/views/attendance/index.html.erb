@@ -12,9 +12,12 @@
   </div>
 
   <% if @user_role == :instructor %>
-    <div class="tab-nav">
-      <%= link_to 'By Content', attendance_index_path, class: 'tab active' %>
-      <%= link_to 'By Student', student_lectures_attendance_index_path, class: 'tab' %>
+    <div class="tab-row">
+      <div class="tab-nav">
+        <%= link_to t('attendance.by_content'), attendance_index_path, class: 'tab active' %>
+        <%= link_to t('attendance.by_student'), student_lectures_attendance_index_path, class: 'tab' %>
+      </div>
+      <%= link_to t('attendance.bulk_settings'), bulk_edit_attendance_index_path, class: 'btn-bulk' %>
     </div>
   <% end %>
 
@@ -31,22 +34,21 @@
     <table class="attendance-table">
       <thead>
         <tr>
-          <th class="col-week">Week</th>
-          <th class="col-title">Lecture Title</th>
-          <th class="col-type">Type</th>
+          <th class="col-week"><%= t('attendance.week') %></th>
+          <th class="col-title"><%= t('attendance.lecture_title') %></th>
+          <th class="col-type"><%= t('attendance.type') %></th>
           <% if @user_role == :instructor %>
-            <th class="col-date">Standard Date</th>
-            <th class="col-date">Due Date</th>
-            <th class="col-stats">Present</th>
-            <th class="col-stats">Excused</th>
-            <th class="col-stats">Late</th>
-            <th class="col-stats">Absent</th>
-            <th class="col-stats">Pending</th>
-            <th class="col-rate">Attendance Rate</th>
+            <th class="col-date"><%= t('attendance.standard_date') %></th>
+            <th class="col-date"><%= t('attendance.due_date') %></th>
+            <th class="col-stats"><%= t('attendance.present') %></th>
+            <th class="col-stats"><%= t('attendance.excused') %></th>
+            <th class="col-stats"><%= t('attendance.late') %></th>
+            <th class="col-stats"><%= t('attendance.absent') %></th>
+            <th class="col-stats"><%= t('attendance.pending') %></th>
+            <th class="col-rate"><%= t('attendance.attendance_rate') %></th>
           <% else %>
-            <th class="col-status">내 출결</th>
+            <th class="col-status"><%= t('attendance.my_attendance') %></th>
           <% end %>
-          <th class="col-actions"></th>
         </tr>
       </thead>
       <tbody>
@@ -56,8 +58,8 @@
             <% stats = data[:stats] %>
             <tr>
               <td class="col-week">
-                <div class="week-label">Week <%= week %></div>
-                <div class="lesson-label">Lesson <%= session.lesson_id %></div>
+                <div class="week-label"><%= t('attendance.week') %> <%= week %></div>
+                <div class="lesson-label"><%= t('attendance.lesson') %> <%= session.lesson_id %></div>
               </td>
               <td class="col-title">
                 <%= link_to session.title.presence || "#{week}주차 #{session.lesson_id}차시",
@@ -86,9 +88,6 @@
                   <% end %>
                 </td>
               <% end %>
-              <td class="col-actions">
-                <%= link_to 'Manage Attendance', attendance_path(session), class: 'btn-link' %>
-              </td>
             </tr>
           <% end %>
         <% end %>
@@ -96,9 +95,9 @@
     </table>
   <% else %>
     <div class="empty-state">
-      <p>등록된 출결 세션이 없습니다.</p>
+      <p><%= t('attendance.no_sessions') %></p>
       <% if @user_role == :instructor %>
-        <p>Canvas에 Panopto/Zoom 콘텐츠를 추가하면 자동으로 세션이 생성됩니다.</p>
+        <p><%= t('attendance.auto_sync_hint') %></p>
       <% end %>
     </div>
   <% end %>
@@ -153,11 +152,26 @@
     color: #1a4d8f;
   }
 
+
+  .tab-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
   .tab-nav {
     display: flex;
     gap: 0;
-    margin-bottom: 2rem;
   }
+
+  .btn-bulk {
+    display: inline-flex; align-items: center;
+    padding: 0.4rem 0.875rem; border: 1px solid #c7cdd1; border-radius: 4px;
+    background: white; color: #212529; text-decoration: none;
+    font-size: 0.8125rem; font-weight: 500;
+  }
+  .btn-bulk:hover { background: #f8f9fa; border-color: #adb5bd; }
 
   .tab {
     padding: 0.5rem 1.25rem;

@@ -3,16 +3,15 @@
   <div class="context-path">
     <div class="context-nav">
       <%= link_to attendance_index_path, class: 'context-link' do %>
-        <span class="context-arrow">&lsaquo;</span> Attendance Records
+        <span class="context-arrow">&lsaquo;</span> <%= t('attendance.attendance_records') %>
       <% end %>
       <span class="context-sep">/</span>
       <%= link_to attendance_path(@session), class: 'context-link' do %>
-        <%= @session.title.presence || @session.week_lesson_label %>
+        <%= t('attendance.attendance_records') %>
       <% end %>
-      <span class="context-sep">/</span>
     </div>
     <div class="context-main">
-      <h1 class="context-title">Settings</h1>
+      <h1 class="context-title"><%= @session.title.presence || @session.week_lesson_label %></h1>
       <div class="context-badges">
         <span class="badge-week">Week <%= @session.week %></span>
         <span class="badge-lesson">Lesson <%= @session.lesson_id %></span>
@@ -38,7 +37,7 @@
   <!-- Settings Form -->
   <%= form_with model: @session, url: attendance_path(@session), local: true do |form| %>
     <div class="settings-card">
-      <h3 class="settings-title">Basic Info</h3>
+      <h3 class="settings-title"><%= t('attendance.basic_info') %></h3>
 
       <div class="form-row">
         <div class="form-column-left">
@@ -59,7 +58,7 @@
       </div>
 
       <h3 class="settings-title" style="margin-top: 1.5rem;">
-        <%= @session.vod? ? 'VOD Settings' : 'LIVE Settings' %>
+        <%= @session.vod? ? t('attendance.vod_settings') : t('attendance.live_settings') %>
       </h3>
 
       <% if @session.vod? %>
@@ -73,8 +72,8 @@
       <% end %>
 
       <div class="form-actions">
-        <%= link_to 'Cancel', attendance_path(@session), class: 'btn-cancel' %>
-        <%= form.submit 'Save', class: 'btn-primary' %>
+        <%= link_to t('attendance.cancel'), attendance_path(@session), class: 'btn-cancel' %>
+        <%= form.submit t('attendance.save'), class: 'btn-primary' %>
       </div>
     </div>
   <% end %>

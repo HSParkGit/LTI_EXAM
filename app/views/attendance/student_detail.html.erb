@@ -1,78 +1,155 @@
 <div class="attendance-container">
-  <div class="attendance-header">
-    <div>
-      <h1>출결 현황</h1>
-      <% if @course_title.present? %>
-        <p class="course-name"><%= @course_title %></p>
+  <!-- Context Path -->
+  <div class="context-path">
+    <div class="context-nav">
+      <% if @user_role == :instructor %>
+        <%= link_to student_lectures_attendance_index_path, class: 'context-link' do %>
+          <span class="context-arrow">&lsaquo;</span> <%= t('attendance.by_student') %>
+        <% end %>
+      <% else %>
+        <%= link_to attendance_index_path, class: 'context-link' do %>
+          <span class="context-arrow">&lsaquo;</span> <%= t('attendance.attendance_records') %>
+        <% end %>
       <% end %>
     </div>
-    <%= link_to 'Back', attendance_index_path, class: 'btn-link' %>
   </div>
 
   <% if @attendance %>
-    <!-- Student Info -->
-    <div class="student-info-card">
-      <div class="student-name-large">
-        <%= @attendance[:user_name] || @attendance[:user_identifier] || '학생' %>
+    <!-- Student Profile Card -->
+    <div class="student-profile-card">
+      <div class="student-avatar">
+        <span class="avatar-initial"><%= (@attendance[:user_name] || '?')[0].upcase %></span>
       </div>
-      <% if @attendance[:stats] %>
-        <div class="stats-grid">
-          <div class="stat-item stat-present">
-            <span class="stat-value"><%= @attendance[:stats][:present] %></span>
-            <span class="stat-label">출석</span>
-          </div>
-          <div class="stat-item stat-late">
-            <span class="stat-value"><%= @attendance[:stats][:late] %></span>
-            <span class="stat-label">지각</span>
-          </div>
-          <div class="stat-item stat-absent">
-            <span class="stat-value"><%= @attendance[:stats][:absent] %></span>
-            <span class="stat-label">결석</span>
-          </div>
-          <div class="stat-item stat-excused">
-            <span class="stat-value"><%= @attendance[:stats][:excused] %></span>
-            <span class="stat-label">공결</span>
-          </div>
-          <div class="stat-item stat-pending">
-            <span class="stat-value"><%= @attendance[:stats][:pending] %></span>
-            <span class="stat-label">미결</span>
-          </div>
-        </div>
-      <% end %>
+      <div class="student-profile-info">
+        <h1 class="student-name"><%= @attendance[:user_name] || @attendance[:user_identifier] || '학생' %></h1>
+        <% if @student_identifier.present? %>
+          <span class="student-id"><%= @student_identifier %></span>
+        <% end %>
+      </div>
     </div>
 
-    <!-- Attendance by Week -->
-    <% if @attendance[:by_week].present? && @attendance[:by_week].any? %>
-      <% @attendance[:by_week].keys.sort.each do |week| %>
-        <div class="week-section">
-          <h2 class="section-title"><%= week %>주차</h2>
-          <div class="records-list">
-            <% @attendance[:by_week][week].each do |data| %>
-              <% record = data[:record] %>
-              <% session = data[:session] %>
-              <% status = data[:status] %>
-              <% status_label = data[:status_label] %>
-              <div class="record-card">
-                <div class="record-info">
-                  <span class="record-lesson"><%= session.lesson_id %>차시</span>
-                  <span class="record-title"><%= session.title.presence || "#{week}주차 #{session.lesson_id}차시" %></span>
-                  <%= attendance_type_badge(session.attendance_type) %>
-                </div>
-                <div class="record-state-area">
-                  <% if record %>
-                    <%= attendance_state_badge(record.attendance_state) %>
-                  <% else %>
-                    <%= attendance_status_badge(status) %>
-                  <% end %>
-                </div>
-              </div>
-            <% end %>
+    <!-- Stats Cards -->
+    <% if @attendance[:stats] %>
+      <div class="stats-row">
+        <div class="stats-cards">
+          <div class="stat-card">
+            <span class="stat-icon icon-present">●</span>
+            <div class="stat-info">
+              <span class="stat-label"><%= t('attendance.present') %></span>
+              <span class="stat-number"><%= @attendance[:stats][:present] %></span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon icon-late">▲</span>
+            <div class="stat-info">
+              <span class="stat-label"><%= t('attendance.late') %></span>
+              <span class="stat-number"><%= @attendance[:stats][:late] %></span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon icon-absent">✕</span>
+            <div class="stat-info">
+              <span class="stat-label"><%= t('attendance.absent') %></span>
+              <span class="stat-number"><%= @attendance[:stats][:absent] %></span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon icon-pending">—</span>
+            <div class="stat-info">
+              <span class="stat-label"><%= t('attendance.pending') %></span>
+              <span class="stat-number"><%= @attendance[:stats][:pending] %></span>
+            </div>
           </div>
         </div>
-      <% end %>
+      </div>
+    <% end %>
+
+    <!-- Attendance Table -->
+    <% if @processed_data.present? %>
+      <div class="detail-table-wrapper">
+        <table class="detail-table">
+          <thead>
+            <tr>
+              <th class="col-week"><%= t('attendance.week') %></th>
+              <th class="col-lesson"><%= t('attendance.lesson') %></th>
+              <th class="col-lesson-status"><%= t('attendance.lesson_attendance') %></th>
+              <th class="col-title"><%= t('attendance.lecture_title') %></th>
+              <th class="col-type"><%= t('attendance.type') %></th>
+              <th class="col-time"><%= t('attendance.start_end') %></th>
+              <th class="col-due"><%= t('attendance.due_date') %></th>
+              <th class="col-status"><%= t('attendance.attendance_status') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @processed_data.each do |week_group| %>
+              <% week = week_group[:week] %>
+              <% lessons = week_group[:lessons] %>
+              <% total_week_lectures = lessons.sum { |l| l[:lectures].size } %>
+
+              <% week_lecture_index = 0 %>
+              <% lessons.each_with_index do |lesson, lesson_index| %>
+                <% lecture_count = lesson[:lectures].size %>
+                <% is_last_lesson = lesson_index == lessons.size - 1 %>
+
+                <% lesson[:lectures].each_with_index do |lecture, lecture_index| %>
+                  <% is_first_of_week = week_lecture_index == 0 %>
+                  <% is_first_of_lesson = lecture_index == 0 %>
+                  <% is_last_of_week = week_lecture_index == total_week_lectures - 1 %>
+                  <% is_last_of_lesson = lecture_index == lecture_count - 1 %>
+
+                  <%# Border class for regular cells %>
+                  <% cell_border = if is_last_of_lesson
+                                     is_last_of_week ? 'border-week-end' : 'border-lesson-end'
+                                   else
+                                     ''
+                                   end %>
+
+                  <%# Border class for rowspan cells %>
+                  <% rowspan_border = is_last_lesson ? 'border-week-end' : 'border-lesson-end' %>
+
+                  <tr>
+                    <% if is_first_of_week %>
+                      <td class="td-week border-week-end" rowspan="<%= total_week_lectures %>">
+                        Week <%= week %>
+                      </td>
+                    <% end %>
+
+                    <% if is_first_of_lesson %>
+                      <td class="td-lesson <%= rowspan_border %>" rowspan="<%= lecture_count %>">
+                        Lesson <%= lesson[:lesson_id] %>
+                      </td>
+                      <td class="td-lesson-status <%= rowspan_border %>" rowspan="<%= lecture_count %>">
+                        <span class="status-icon-cell icon-<%= lesson[:lesson_status] %>"><%= status_icon(lesson[:lesson_status]) %></span>
+                      </td>
+                    <% end %>
+
+                    <td class="td-title <%= cell_border %>">
+                      <%= lecture[:title] %>
+                    </td>
+                    <td class="td-type <%= cell_border %>">
+                      <%= lecture[:attendance_type].upcase %>
+                    </td>
+                    <td class="td-time <%= cell_border %>">
+                      <%= lecture[:class_time] %>
+                    </td>
+                    <td class="td-due <%= cell_border %>">
+                      <%= lecture[:due] %>
+                    </td>
+                    <td class="td-status <%= cell_border %>">
+                      <span class="status-icon-cell icon-<%= lecture[:status] %> opacity-low"><%= status_icon(lecture[:status]) %></span>
+                    </td>
+                  </tr>
+
+                  <% week_lecture_index += 1 %>
+                <% end %>
+              <% end %>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
     <% else %>
       <div class="empty-state">
-        <p>출결 기록이 없습니다.</p>
+        <p><%= t('attendance.no_records') %></p>
       </div>
     <% end %>
   <% else %>
@@ -84,168 +161,116 @@
 
 <style>
   .attendance-container {
-    max-width: 1000px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1.5rem;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
 
-  .attendance-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #0d6efd;
+  /* Context Path */
+  .context-path { margin-bottom: 1.5rem; }
+  .context-nav { display: flex; align-items: center; gap: 0.5rem; }
+  .context-link {
+    color: #1a4d8f; text-decoration: none; font-size: 0.875rem; font-weight: 500;
+    display: flex; align-items: center; gap: 0.25rem;
+  }
+  .context-link:hover { text-decoration: underline; }
+  .context-arrow { font-size: 1.125rem; }
+
+  /* Student Profile Card */
+  .student-profile-card {
+    display: flex; align-items: center; gap: 1.25rem;
+    padding: 1.5rem; margin-bottom: 1.5rem;
+    background: white; border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .student-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: #e9ecef; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .avatar-initial {
+    font-size: 1.25rem; font-weight: 600; color: #495057;
+  }
+  .student-name {
+    font-size: 1.25rem; font-weight: 600; color: #212529;
+    margin: 0 0 0.125rem 0; border-bottom: none;
+  }
+  .student-id {
+    font-size: 0.8125rem; color: #6c757d;
   }
 
-  .attendance-header h1 {
-    font-size: 1.75rem;
-    font-weight: 600;
-    color: #212529;
-    margin: 0 0 0.25rem 0;
+  /* Stats Row */
+  .stats-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+  .stats-cards { display: flex; gap: 0.75rem; }
+  .stat-card {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.875rem; background: white; border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+  .stat-icon { font-size: 0.75rem; line-height: 1; }
+  .icon-present { color: #1E7B1E; }
+  .icon-late { color: #FF6A33; }
+  .icon-absent { color: #CD0404; }
+  .icon-pending { color: #8A8A8A; }
+  .stat-info { display: flex; flex-direction: column; }
+  .stat-label { font-size: 0.6875rem; color: #6c757d; font-weight: 500; }
+  .stat-number { font-size: 1rem; font-weight: 600; color: #212529; }
+
+  /* Detail Table */
+  .detail-table-wrapper {
+    overflow-x: auto; background: white; border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .detail-table {
+    width: 100%; border-collapse: collapse; font-size: 0.8125rem;
+  }
+  .detail-table thead th {
+    padding: 0.75rem 1rem; text-align: center; white-space: nowrap;
+    background: #f2f2f3; font-weight: 500; color: #212529;
+    border-bottom: 1px solid #dee2e6;
+  }
+  .detail-table tbody td {
+    padding: 0.75rem 1rem; text-align: center;
+    font-size: 0.8125rem; color: #212529; font-weight: 500;
   }
 
-  .course-name {
-    font-size: 0.875rem;
-    color: #6c757d;
-    margin: 0;
-  }
+  .col-week { min-width: 72px; }
+  .col-lesson { min-width: 72px; }
+  .col-lesson-status { min-width: 56px; }
+  .col-title { min-width: 200px; }
+  .col-type { min-width: 56px; }
+  .col-time { min-width: 140px; }
+  .col-due { min-width: 100px; }
+  .col-status { min-width: 56px; }
 
-  .btn-link {
-    color: #0d6efd;
-    text-decoration: none;
-    padding: 0.5rem;
-  }
+  .td-week { font-weight: 600; color: #212529; }
+  .td-lesson { font-weight: 600; color: #495057; border-left: 1.5px solid #e9ecef; }
+  .td-lesson-status { }
+  .td-title { text-align: left; }
+  .td-type { color: #495057; }
+  .td-time { color: #6c757d; font-size: 0.75rem; white-space: nowrap; }
+  .td-due { color: #6c757d; font-size: 0.75rem; white-space: nowrap; }
+  .td-status { }
 
-  .btn-link:hover {
-    text-decoration: underline;
-  }
+  .border-week-end { border-bottom: 2px solid #d1d5db; }
+  .border-lesson-end { border-bottom: 1.5px solid #e9ecef; }
 
-  .student-info-card {
-    background: white;
-    border-radius: 8px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    text-align: center;
-  }
-
-  .student-name-large {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #212529;
-    margin-bottom: 1.5rem;
-  }
-
-  .stats-grid {
-    display: flex;
-    gap: 2rem;
-    justify-content: center;
-  }
-
-  .stat-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.5rem 1.5rem;
-  }
-
-  .stat-value {
-    font-size: 1.75rem;
-    font-weight: 600;
-  }
-
-  .stat-label {
-    font-size: 0.75rem;
-    color: #6c757d;
-    margin-top: 0.25rem;
-  }
-
-  .stat-present .stat-value { color: #0B874B; }
-  .stat-late .stat-value { color: #ffc107; }
-  .stat-absent .stat-value { color: #dc3545; }
-  .stat-excused .stat-value { color: #6c757d; }
-  .stat-pending .stat-value { color: #adb5bd; }
-
-  .week-section {
-    margin-bottom: 1.5rem;
-  }
-
-  .section-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #212529;
-    margin-bottom: 0.75rem;
-  }
-
-  .records-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .record-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: white;
-    padding: 1rem 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-
-  .record-info {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .record-lesson {
-    font-weight: 500;
-    color: #495057;
-    min-width: 60px;
-  }
-
-  .record-title {
-    font-weight: 500;
-    color: #212529;
-  }
-
-  .record-state-area {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .record-detail {
-    font-size: 0.875rem;
-    color: #6c757d;
-  }
-
-  /* Badges */
-  .badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
-
-  .badge-vod { background-color: #e7f1ff; color: #0d6efd; }
-  .badge-live { background-color: #fff3cd; color: #856404; }
-  .state-present { background-color: #d1e7dd; color: #0f5132; }
-  .state-late { background-color: #fff3cd; color: #664d03; }
-  .state-absent { background-color: #f8d7da; color: #842029; }
-  .state-excused { background-color: #e2e3e5; color: #41464b; }
-  .state-pending { background-color: #f8f9fa; color: #6c757d; }
+  /* Status icons */
+  .status-icon-cell { font-size: 0.875rem; }
+  .status-icon-cell.icon-present { color: #1E7B1E; }
+  .status-icon-cell.icon-excused { color: #1E7B1E; }
+  .status-icon-cell.icon-late { color: #FF6A33; }
+  .status-icon-cell.icon-absent { color: #CD0404; }
+  .status-icon-cell.icon-pending { color: #8A8A8A; }
+  .opacity-low { opacity: 0.35; }
 
   .empty-state {
-    text-align: center;
-    padding: 3rem 2rem;
-    color: #6c757d;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    text-align: center; padding: 3rem 2rem; color: #6c757d;
+    background: white; border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
 </style>

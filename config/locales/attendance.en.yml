@@ -1,0 +1,110 @@
+en:
+  attendance:
+    # Common
+    attendance_records: "Attendance Records"
+    by_content: "By Content"
+    by_student: "By Student"
+    bulk_settings: "Bulk Settings"
+    save: "Save"
+    save_all: "Save All"
+    cancel: "Cancel"
+    edit: "Edit"
+    close: "Close"
+    search: "Search"
+    clear: "Clear"
+    search_placeholder: "Search by title..."
+    all_types: "All Types"
+    sessions_count: "%{count} sessions"
+
+    # Status
+    present: "Present"
+    late: "Late"
+    absent: "Absent"
+    excused: "Excused"
+    pending: "Pending"
+    attendance_rate: "Attendance Rate"
+
+    # Index
+    week: "Week"
+    lesson: "Lesson"
+    lecture_title: "Lecture Title"
+    type: "Type"
+    standard_date: "Standard Date"
+    due_date: "Due Date"
+    no_sessions: "No attendance sessions found."
+    auto_sync_hint: "Sessions will be created automatically when Panopto/Zoom content is added in Canvas."
+    my_attendance: "My Attendance"
+
+    # Show (Session Detail)
+    download_excel: "Download Excel"
+    name: "Name"
+    student_number: "Student Number"
+    attendance_status: "Attendance Status"
+    history: "Attendance History"
+    no_students: "No students found or Canvas API unavailable."
+
+    # Setting Summary
+    setting_attendance: "Attendance"
+    setting_on: "ON"
+    setting_off: "OFF"
+    setting_required: "Required"
+    setting_threshold: "Threshold"
+    setting_tardiness: "Tardiness"
+    setting_period: "Period"
+    setting_late_until: "Late Until"
+    setting_start: "Start"
+    setting_duration: "Duration"
+    setting_duration_unit: "min"
+
+    # Edit
+    basic_info: "Basic Info"
+    vod_settings: "VOD Settings"
+    live_settings: "LIVE Settings"
+    allow_attendance: "Allow Attendance"
+    allow_tardiness: "Allow Tardiness"
+    percent_required: "Required Rate"
+    percent_required_hint: "Minimum view rate for attendance. (Fixed)"
+    unlock_at: "Open"
+    lock_at: "Close"
+    attendance_finish_at: "Attendance Deadline"
+    attendance_finish_hint: "Attendance is recognized if the rate is met by this time."
+    tardiness_finish_at: "Late Deadline"
+    tardiness_finish_hint: "Late is recognized if the rate is met after the attendance deadline and before this time."
+    attendance_threshold: "Attendance Threshold"
+    attendance_threshold_hint: "Attendance is recognized if participation time exceeds this percentage of total duration."
+    tardiness_threshold: "Tardiness Threshold"
+    tardiness_threshold_hint: "Late is recognized if participation is between this and the attendance threshold."
+    start_time: "Start Time"
+    duration: "Duration"
+    duration_hint: "seconds (e.g. 3600 = 1 hour)"
+
+    # Bulk Edit
+    open_start: "Open / Start"
+    close_duration: "Close / Duration"
+    att_deadline: "Att. Deadline"
+    late_deadline: "Late Deadline"
+    late_criteria: "Late Criteria"
+    no_setting: "No Setting"
+    bulk_save_success: "%{count} settings saved."
+    bulk_save_partial: "%{updated} saved, %{failed} failed"
+
+    # Student Detail Modal
+    student_detail: "Student Attendance Detail"
+    lesson_attendance: "Lesson Attendance"
+    start_end: "Start / End"
+    no_records: "No attendance records found."
+
+    # History Modal
+    attendance_history: "Attendance History"
+    change_status: "Change Status"
+    no_logs: "No attendance logs found."
+    date: "Date"
+    time: "Time"
+    view_rate: "View Rate"
+    notes: "Notes"
+    status_changed: "Status changed"
+
+    # Language
+    language: "Language"
+    language_ko: "한국어"
+    language_en: "English"

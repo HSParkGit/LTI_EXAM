@@ -29,6 +29,8 @@ Rails.application.routes.draw do
       get :my_attendance
       get :student_lectures
       get :student_lectures_excel
+      get :bulk_edit
+      patch :bulk_update
     end
   end
 

@@ -1,68 +1,101 @@
 <div class="form-row">
   <div class="form-column-left">
-    <label>출결 허용</label>
+    <label><%= t('attendance.allow_attendance') %></label>
   </div>
   <div class="form-column-right">
     <div class="checkbox-group">
       <label class="checkbox-label">
-        <%= form.check_box :allow_attendance %>
-        <span>출결 허용</span>
-      </label>
-    </div>
-    <div class="checkbox-group">
-      <label class="checkbox-label">
-        <%= form.check_box :allow_tardiness %>
-        <span>지각 허용</span>
+        <%= form.check_box :allow_attendance, id: 'vod_allow_attendance' %>
+        <span><%= t('attendance.allow_attendance') %></span>
       </label>
     </div>
   </div>
 </div>
 
-<div class="form-row">
-  <div class="form-column-left">
-    <label>필요 진도율</label>
+<div id="vodAttendanceFields">
+  <div class="form-row">
+    <div class="form-column-left">
+      <label><%= t('attendance.percent_required') %></label>
+    </div>
+    <div class="form-column-right">
+      <strong>95%</strong>
+      <%= form.hidden_field :percent_required, value: 95 %>
+      <p class="hint-text"><%= t('attendance.percent_required_hint') %></p>
+    </div>
   </div>
-  <div class="form-column-right">
-    <%= form.number_field :percent_required, class: 'input-small', min: 0, max: 100, placeholder: '80' %>
-    <span class="hint-inline">%</span>
-    <p class="hint-text">출석 인정을 위한 최소 시청율입니다.</p>
+
+  <div class="form-row">
+    <div class="form-column-left">
+      <label><%= t('attendance.unlock_at') %></label>
+    </div>
+    <div class="form-column-right">
+      <%= form.datetime_local_field :unlock_at, class: 'input-datetime' %>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-column-left">
+      <label><%= t('attendance.lock_at') %></label>
+    </div>
+    <div class="form-column-right">
+      <%= form.datetime_local_field :lock_at, class: 'input-datetime' %>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-column-left">
+      <label><%= t('attendance.attendance_finish_at') %></label>
+    </div>
+    <div class="form-column-right">
+      <%= form.datetime_local_field :attendance_finish_at, class: 'input-datetime' %>
+      <p class="hint-text"><%= t('attendance.attendance_finish_hint') %></p>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-column-left">
+      <label><%= t('attendance.allow_tardiness') %></label>
+    </div>
+    <div class="form-column-right">
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <%= form.check_box :allow_tardiness, id: 'vod_allow_tardiness' %>
+          <span><%= t('attendance.allow_tardiness') %></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div id="vodTardinessFields">
+    <div class="form-row">
+      <div class="form-column-left">
+        <label><%= t('attendance.tardiness_finish_at') %></label>
+      </div>
+      <div class="form-column-right">
+        <%= form.datetime_local_field :tardiness_finish_at, class: 'input-datetime' %>
+        <p class="hint-text"><%= t('attendance.tardiness_finish_hint') %></p>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="form-row">
-  <div class="form-column-left">
-    <label>열람 시작</label>
-  </div>
-  <div class="form-column-right">
-    <%= form.datetime_local_field :unlock_at, class: 'input-datetime' %>
-  </div>
-</div>
+<script>
+(function() {
+  var allowAtt = document.getElementById('vod_allow_attendance');
+  var attFields = document.getElementById('vodAttendanceFields');
+  var allowTard = document.getElementById('vod_allow_tardiness');
+  var tardFields = document.getElementById('vodTardinessFields');
 
-<div class="form-row">
-  <div class="form-column-left">
-    <label>열람 종료</label>
-  </div>
-  <div class="form-column-right">
-    <%= form.datetime_local_field :lock_at, class: 'input-datetime' %>
-  </div>
-</div>
+  function toggleAttendance() {
+    attFields.style.display = allowAtt.checked ? '' : 'none';
+  }
+  function toggleTardiness() {
+    tardFields.style.display = allowTard.checked ? '' : 'none';
+  }
 
-<div class="form-row">
-  <div class="form-column-left">
-    <label>출석 마감</label>
-  </div>
-  <div class="form-column-right">
-    <%= form.datetime_local_field :attendance_finish_at, class: 'input-datetime' %>
-    <p class="hint-text">이 시간까지 진도율을 달성하면 출석으로 인정됩니다.</p>
-  </div>
-</div>
-
-<div class="form-row">
-  <div class="form-column-left">
-    <label>지각 마감</label>
-  </div>
-  <div class="form-column-right">
-    <%= form.datetime_local_field :tardiness_finish_at, class: 'input-datetime' %>
-    <p class="hint-text">출석 마감 후 이 시간까지 진도율을 달성하면 지각으로 인정됩니다.</p>
-  </div>
-</div>
+  allowAtt.addEventListener('change', toggleAttendance);
+  allowTard.addEventListener('change', toggleTardiness);
+  toggleAttendance();
+  toggleTardiness();
+})();
+</script>

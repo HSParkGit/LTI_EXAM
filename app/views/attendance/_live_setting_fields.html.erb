@@ -1,60 +1,93 @@
 <div class="form-row">
   <div class="form-column-left">
-    <label>출결 허용</label>
+    <label><%= t('attendance.allow_attendance') %></label>
   </div>
   <div class="form-column-right">
     <div class="checkbox-group">
       <label class="checkbox-label">
-        <%= form.check_box :allow_attendance %>
-        <span>출결 허용</span>
-      </label>
-    </div>
-    <div class="checkbox-group">
-      <label class="checkbox-label">
-        <%= form.check_box :allow_tardiness %>
-        <span>지각 허용</span>
+        <%= form.check_box :allow_attendance, id: 'live_allow_attendance' %>
+        <span><%= t('attendance.allow_attendance') %></span>
       </label>
     </div>
   </div>
 </div>
 
-<div class="form-row">
-  <div class="form-column-left">
-    <label>출석 기준</label>
+<div id="liveAttendanceFields">
+  <div class="form-row">
+    <div class="form-column-left">
+      <label><%= t('attendance.attendance_threshold') %></label>
+    </div>
+    <div class="form-column-right">
+      <%= form.number_field :attendance_threshold, class: 'input-small', min: 1, max: 100, placeholder: '80' %>
+      <span class="hint-inline">%</span>
+      <p class="hint-text"><%= t('attendance.attendance_threshold_hint') %></p>
+    </div>
   </div>
-  <div class="form-column-right">
-    <%= form.number_field :attendance_threshold, class: 'input-small', min: 1, max: 100, placeholder: '80' %>
-    <span class="hint-inline">%</span>
-    <p class="hint-text">전체 진행 시간 대비 참여 시간이 이 비율 이상이면 출석으로 인정됩니다.</p>
+
+  <div class="form-row">
+    <div class="form-column-left">
+      <label><%= t('attendance.start_time') %></label>
+    </div>
+    <div class="form-column-right">
+      <%= form.datetime_local_field :start_time, class: 'input-datetime' %>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-column-left">
+      <label><%= t('attendance.duration') %></label>
+    </div>
+    <div class="form-column-right">
+      <%= form.number_field :duration, class: 'input-small', min: 60, placeholder: '3600' %>
+      <span class="hint-inline"><%= t('attendance.duration_hint') %></span>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-column-left">
+      <label><%= t('attendance.allow_tardiness') %></label>
+    </div>
+    <div class="form-column-right">
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <%= form.check_box :allow_tardiness, id: 'live_allow_tardiness' %>
+          <span><%= t('attendance.allow_tardiness') %></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div id="liveTardinessFields">
+    <div class="form-row">
+      <div class="form-column-left">
+        <label><%= t('attendance.tardiness_threshold') %></label>
+      </div>
+      <div class="form-column-right">
+        <%= form.number_field :tardiness_threshold, class: 'input-small', min: 1, max: 100, placeholder: '50' %>
+        <span class="hint-inline">%</span>
+        <p class="hint-text"><%= t('attendance.tardiness_threshold_hint') %></p>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="form-row">
-  <div class="form-column-left">
-    <label>지각 기준</label>
-  </div>
-  <div class="form-column-right">
-    <%= form.number_field :tardiness_threshold, class: 'input-small', min: 1, max: 100, placeholder: '50' %>
-    <span class="hint-inline">%</span>
-    <p class="hint-text">참여 시간이 이 비율 이상 출석 기준 미만이면 지각으로 인정됩니다.</p>
-  </div>
-</div>
+<script>
+(function() {
+  var allowAtt = document.getElementById('live_allow_attendance');
+  var attFields = document.getElementById('liveAttendanceFields');
+  var allowTard = document.getElementById('live_allow_tardiness');
+  var tardFields = document.getElementById('liveTardinessFields');
 
-<div class="form-row">
-  <div class="form-column-left">
-    <label>시작 시간</label>
-  </div>
-  <div class="form-column-right">
-    <%= form.datetime_local_field :start_time, class: 'input-datetime' %>
-  </div>
-</div>
+  function toggleAttendance() {
+    attFields.style.display = allowAtt.checked ? '' : 'none';
+  }
+  function toggleTardiness() {
+    tardFields.style.display = allowTard.checked ? '' : 'none';
+  }
 
-<div class="form-row">
-  <div class="form-column-left">
-    <label>진행 시간</label>
-  </div>
-  <div class="form-column-right">
-    <%= form.number_field :duration, class: 'input-small', min: 60, placeholder: '3600' %>
-    <span class="hint-inline">초 (예: 3600 = 1시간)</span>
-  </div>
-</div>
+  allowAtt.addEventListener('change', toggleAttendance);
+  allowTard.addEventListener('change', toggleTardiness);
+  toggleAttendance();
+  toggleTardiness();
+})();
+</script>

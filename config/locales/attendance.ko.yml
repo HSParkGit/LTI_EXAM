@@ -1,0 +1,110 @@
+ko:
+  attendance:
+    # Common
+    attendance_records: "출결 관리"
+    by_content: "콘텐츠별"
+    by_student: "학생별"
+    bulk_settings: "일괄 설정"
+    save: "저장"
+    save_all: "전체 저장"
+    cancel: "취소"
+    edit: "수정"
+    close: "닫기"
+    search: "검색"
+    clear: "초기화"
+    search_placeholder: "제목으로 검색..."
+    all_types: "전체 타입"
+    sessions_count: "%{count}개 세션"
+
+    # Status
+    present: "출석"
+    late: "지각"
+    absent: "결석"
+    excused: "공결"
+    pending: "미결"
+    attendance_rate: "출석률"
+
+    # Index
+    week: "주차"
+    lesson: "차시"
+    lecture_title: "강의 제목"
+    type: "유형"
+    standard_date: "수강 기간"
+    due_date: "마감일"
+    no_sessions: "등록된 출결 세션이 없습니다."
+    auto_sync_hint: "Canvas에 Panopto/Zoom 콘텐츠를 추가하면 자동으로 세션이 생성됩니다."
+    my_attendance: "내 출결"
+
+    # Show (Session Detail)
+    download_excel: "Excel 다운로드"
+    name: "이름"
+    student_number: "학번"
+    attendance_status: "출결 상태"
+    history: "Attendance History"
+    no_students: "수강생 또는 출결 세션이 없습니다."
+
+    # Setting Summary
+    setting_attendance: "출결허용"
+    setting_on: "ON"
+    setting_off: "OFF"
+    setting_required: "출석기준"
+    setting_threshold: "출석기준"
+    setting_tardiness: "지각허용"
+    setting_period: "수강기간"
+    setting_late_until: "지각마감"
+    setting_start: "시작시간"
+    setting_duration: "진행시간"
+    setting_duration_unit: "분"
+
+    # Edit
+    basic_info: "기본 정보"
+    vod_settings: "VOD 설정"
+    live_settings: "LIVE 설정"
+    allow_attendance: "출결 허용"
+    allow_tardiness: "지각 허용"
+    percent_required: "필요 진도율"
+    percent_required_hint: "출석 인정을 위한 최소 시청율입니다. (고정값)"
+    unlock_at: "열람 시작"
+    lock_at: "열람 종료"
+    attendance_finish_at: "출석 마감"
+    attendance_finish_hint: "이 시간까지 진도율을 달성하면 출석으로 인정됩니다."
+    tardiness_finish_at: "지각 마감"
+    tardiness_finish_hint: "출석 마감 후 이 시간까지 진도율을 달성하면 지각으로 인정됩니다."
+    attendance_threshold: "출석 기준"
+    attendance_threshold_hint: "전체 진행 시간 대비 참여 시간이 이 비율 이상이면 출석으로 인정됩니다."
+    tardiness_threshold: "지각 기준"
+    tardiness_threshold_hint: "참여 시간이 이 비율 이상 출석 기준 미만이면 지각으로 인정됩니다."
+    start_time: "시작 시간"
+    duration: "진행 시간"
+    duration_hint: "초 (예: 3600 = 1시간)"
+
+    # Bulk Edit
+    open_start: "열람시작 / 시작시간"
+    close_duration: "열람종료 / 진행시간"
+    att_deadline: "출석마감"
+    late_deadline: "지각마감"
+    late_criteria: "지각 기준"
+    no_setting: "Setting 없음"
+    bulk_save_success: "%{count}건 설정이 저장되었습니다."
+    bulk_save_partial: "%{updated}건 저장, %{failed}건 실패"
+
+    # Student Detail Modal
+    student_detail: "학생 출결 상세"
+    lesson_attendance: "차시 출결"
+    start_end: "수강 기간"
+    no_records: "출결 기록이 없습니다."
+
+    # History Modal
+    attendance_history: "Attendance History"
+    change_status: "상태 변경"
+    no_logs: "No attendance logs found."
+    date: "날짜"
+    time: "시간"
+    view_rate: "시청률"
+    notes: "비고"
+    status_changed: "출결 상태 변경"
+
+    # Language
+    language: "언어"
+    language_ko: "한국어"
+    language_en: "English"

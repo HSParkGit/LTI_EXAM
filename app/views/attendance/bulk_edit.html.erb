@@ -1,0 +1,358 @@
+<div class="attendance-container">
+  <!-- Context Path -->
+  <div class="context-path">
+    <div class="context-nav">
+      <%= link_to attendance_index_path, class: 'context-link' do %>
+        <span class="context-arrow">&lsaquo;</span> <%= t('attendance.attendance_records') %>
+      <% end %>
+    </div>
+    <div class="context-main">
+      <h1 class="context-title"><%= t('attendance.bulk_settings') %></h1>
+    </div>
+  </div>
+
+  <% if flash[:notice] %>
+    <div class="alert alert-success"><%= flash[:notice] %></div>
+  <% end %>
+  <% if flash[:error] %>
+    <div class="alert alert-danger"><%= flash[:error] %></div>
+  <% end %>
+
+  <!-- Search & Filter -->
+  <div class="bulk-toolbar">
+    <%= form_with url: bulk_edit_attendance_index_path, method: :get, local: true, class: 'bulk-search-form' do %>
+      <input type="text" name="q" value="<%= params[:q] %>" placeholder="<%= t('attendance.search_placeholder') %>" class="search-input">
+      <select name="type" class="filter-select" onchange="this.form.submit()">
+        <option value=""><%= t('attendance.all_types') %></option>
+        <option value="vod" <%= 'selected' if params[:type] == 'vod' %>>VOD</option>
+        <option value="live" <%= 'selected' if params[:type] == 'live' %>>LIVE</option>
+      </select>
+      <button type="submit" class="btn-search"><%= t('attendance.search') %></button>
+      <% if params[:q].present? || params[:type].present? %>
+        <%= link_to t('attendance.clear'), bulk_edit_attendance_index_path, class: 'btn-clear' %>
+      <% end %>
+    <% end %>
+    <span class="bulk-count"><%= t('attendance.sessions_count', count: @total_count) %></span>
+  </div>
+
+  <% if @sessions.any? %>
+    <%= form_with url: bulk_update_attendance_index_path, method: :patch, local: true do %>
+      <input type="hidden" name="page" value="<%= @page %>">
+      <input type="hidden" name="q" value="<%= params[:q] %>">
+      <input type="hidden" name="type" value="<%= params[:type] %>">
+
+      <div class="bulk-table-wrapper">
+        <table class="bulk-table">
+          <thead>
+            <tr>
+              <th class="col-week"><%= t('attendance.week') %></th>
+              <th class="col-title"><%= t('attendance.lecture_title') %></th>
+              <th class="col-type"><%= t('attendance.type') %></th>
+              <th class="col-check"><%= t('attendance.setting_attendance') %></th>
+              <th class="col-val"><%= t('attendance.setting_required') %> /<br><%= t('attendance.setting_threshold') %></th>
+              <th class="col-check"><%= t('attendance.setting_tardiness') %></th>
+              <th class="col-val"><%= t('attendance.late_criteria') %></th>
+              <th class="col-datetime"><%= t('attendance.open_start') %></th>
+              <th class="col-datetime"><%= t('attendance.close_duration') %></th>
+              <th class="col-datetime"><%= t('attendance.att_deadline') %></th>
+              <th class="col-datetime"><%= t('attendance.late_deadline') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @sessions.each do |session| %>
+              <% setting = session.setting %>
+              <% prefix = "sessions[#{session.id}]" %>
+              <tr class="bulk-row" data-session-id="<%= session.id %>" data-type="<%= session.attendance_type %>">
+                <td class="td-week">
+                  <div class="week-label">W<%= session.week %></div>
+                  <div class="lesson-label">L<%= session.lesson_id %></div>
+                </td>
+                <td class="td-title"><%= session.title %></td>
+                <td class="td-type">
+                  <span class="type-tag type-<%= session.attendance_type %>"><%= session.attendance_type.upcase %></span>
+                </td>
+
+                <% if setting %>
+                  <td class="td-check">
+                    <input type="hidden" name="<%= prefix %>[allow_attendance]" value="0">
+                    <input type="checkbox" name="<%= prefix %>[allow_attendance]" value="1"
+                           class="cb-attendance" data-sid="<%= session.id %>"
+                           <%= 'checked' if setting.allow_attendance? %>>
+                  </td>
+
+                  <% if session.vod? %>
+                    <td class="td-val att-field att-<%= session.id %>">
+                      <strong>95%</strong>
+                      <input type="hidden" name="<%= prefix %>[percent_required]" value="95">
+                    </td>
+                    <td class="td-check att-field att-<%= session.id %>">
+                      <input type="hidden" name="<%= prefix %>[allow_tardiness]" value="0">
+                      <input type="checkbox" name="<%= prefix %>[allow_tardiness]" value="1"
+                             class="cb-tardiness" data-sid="<%= session.id %>"
+                             <%= 'checked' if setting.allow_tardiness? %>>
+                    </td>
+                    <td class="td-val tard-field tard-<%= session.id %> att-field att-<%= session.id %>">-</td>
+                    <td class="td-datetime att-field att-<%= session.id %>">
+                      <input type="datetime-local" name="<%= prefix %>[unlock_at]"
+                             value="<%= setting.unlock_at&.strftime('%Y-%m-%dT%H:%M') %>"
+                             class="input-datetime-sm">
+                    </td>
+                    <td class="td-datetime att-field att-<%= session.id %>">
+                      <input type="datetime-local" name="<%= prefix %>[lock_at]"
+                             value="<%= setting.lock_at&.strftime('%Y-%m-%dT%H:%M') %>"
+                             class="input-datetime-sm">
+                    </td>
+                    <td class="td-datetime att-field att-<%= session.id %>">
+                      <input type="datetime-local" name="<%= prefix %>[attendance_finish_at]"
+                             value="<%= setting.attendance_finish_at&.strftime('%Y-%m-%dT%H:%M') %>"
+                             class="input-datetime-sm">
+                    </td>
+                    <td class="td-datetime tard-field tard-<%= session.id %> att-field att-<%= session.id %>">
+                      <input type="datetime-local" name="<%= prefix %>[tardiness_finish_at]"
+                             value="<%= setting.tardiness_finish_at&.strftime('%Y-%m-%dT%H:%M') %>"
+                             class="input-datetime-sm">
+                    </td>
+                  <% else %>
+                    <td class="td-val att-field att-<%= session.id %>">
+                      <input type="number" name="<%= prefix %>[attendance_threshold]" value="<%= setting.attendance_threshold %>"
+                             class="input-inline" min="1" max="100">%
+                    </td>
+                    <td class="td-check att-field att-<%= session.id %>">
+                      <input type="hidden" name="<%= prefix %>[allow_tardiness]" value="0">
+                      <input type="checkbox" name="<%= prefix %>[allow_tardiness]" value="1"
+                             class="cb-tardiness" data-sid="<%= session.id %>"
+                             <%= 'checked' if setting.allow_tardiness? %>>
+                    </td>
+                    <td class="td-val tard-field tard-<%= session.id %> att-field att-<%= session.id %>">
+                      <input type="number" name="<%= prefix %>[tardiness_threshold]" value="<%= setting.tardiness_threshold %>"
+                             class="input-inline" min="1" max="100">%
+                    </td>
+                    <td class="td-datetime att-field att-<%= session.id %>">
+                      <input type="datetime-local" name="<%= prefix %>[start_time]"
+                             value="<%= setting.start_time&.strftime('%Y-%m-%dT%H:%M') %>"
+                             class="input-datetime-sm">
+                    </td>
+                    <td class="td-val att-field att-<%= session.id %>">
+                      <input type="number" name="<%= prefix %>[duration]" value="<%= setting.duration %>"
+                             class="input-inline-wide" min="60">
+                      <span class="hint-sm">초</span>
+                    </td>
+                    <td class="td-datetime att-field att-<%= session.id %>">-</td>
+                    <td class="td-datetime att-field att-<%= session.id %>">-</td>
+                  <% end %>
+                <% else %>
+                  <td colspan="8" class="td-nosetting"><%= t('attendance.no_setting') %></td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <% if @total_pages > 1 %>
+        <div class="bulk-pagination">
+          <% if @page > 1 %>
+            <%= link_to '‹ Prev', bulk_edit_attendance_index_path(page: @page - 1, q: params[:q], type: params[:type]), class: 'page-link' %>
+          <% end %>
+          <% (1..@total_pages).each do |p| %>
+            <% if p == @page %>
+              <span class="page-current"><%= p %></span>
+            <% else %>
+              <%= link_to p, bulk_edit_attendance_index_path(page: p, q: params[:q], type: params[:type]), class: 'page-link' %>
+            <% end %>
+          <% end %>
+          <% if @page < @total_pages %>
+            <%= link_to 'Next ›', bulk_edit_attendance_index_path(page: @page + 1, q: params[:q], type: params[:type]), class: 'page-link' %>
+          <% end %>
+        </div>
+      <% end %>
+
+      <div class="bulk-actions">
+        <%= link_to t('attendance.cancel'), attendance_index_path, class: 'btn-cancel' %>
+        <button type="submit" class="btn-primary"><%= t('attendance.save_all') %></button>
+      </div>
+    <% end %>
+  <% else %>
+    <div class="empty-state">
+      <p><%= t('attendance.no_sessions') %></p>
+    </div>
+  <% end %>
+</div>
+
+<style>
+  .attendance-container {
+    max-width: 100%; margin: 0 auto; padding: 1.5rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .context-path {
+    padding: 1rem 1.25rem; background-color: #f0f4f8;
+    border-radius: 8px; margin-bottom: 1.5rem;
+  }
+  .context-nav { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem; }
+  .context-link { color: #0d6efd; text-decoration: none; font-size: 0.8125rem; font-weight: 500; }
+  .context-link:hover { text-decoration: underline; }
+  .context-arrow { font-size: 1rem; margin-right: 0.125rem; }
+  .context-main { display: flex; align-items: center; gap: 0.75rem; }
+  .context-title { font-size: 1.25rem; font-weight: 700; color: #212529; margin: 0; border-bottom: none; }
+
+  .alert { padding: 0.75rem 1rem; border-radius: 0.375rem; margin-bottom: 1rem; font-size: 0.875rem; }
+  .alert-success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+  .alert-danger { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+
+  /* Toolbar */
+  .bulk-toolbar {
+    display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;
+  }
+  .bulk-search-form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .search-input {
+    padding: 0.4rem 0.75rem; border: 1px solid #c7cdd1; border-radius: 4px;
+    font-size: 0.8125rem; width: 200px;
+  }
+  .filter-select {
+    padding: 0.4rem 0.5rem; border: 1px solid #c7cdd1; border-radius: 4px;
+    font-size: 0.8125rem; background: white;
+  }
+  .btn-search {
+    padding: 0.4rem 0.875rem; background: #0374B5; color: white; border: none;
+    border-radius: 4px; font-size: 0.8125rem; cursor: pointer;
+  }
+  .btn-search:hover { background: #025a8c; }
+  .btn-clear {
+    padding: 0.4rem 0.75rem; color: #6c757d; text-decoration: none; font-size: 0.8125rem;
+  }
+  .btn-clear:hover { text-decoration: underline; }
+  .bulk-count { font-size: 0.75rem; color: #6c757d; margin-left: auto; }
+
+  /* Table */
+  .bulk-table-wrapper {
+    overflow-x: auto; background: white; border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .bulk-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  .bulk-table thead th {
+    padding: 0.625rem 0.5rem; text-align: center; white-space: nowrap;
+    background: #f2f2f3; font-weight: 500; color: #212529;
+    border-bottom: 1px solid #dee2e6; font-size: 0.75rem;
+  }
+  .bulk-table tbody td {
+    padding: 0.5rem; text-align: center; border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+  }
+  .bulk-table tbody tr:hover { background-color: #f8f9fa; }
+
+  .col-week { width: 48px; }
+  .col-title { min-width: 140px; text-align: left; }
+  .col-type { width: 48px; }
+  .col-check { width: 60px; }
+  .col-val { width: 80px; }
+  .col-datetime { width: 160px; }
+
+  .td-week { text-align: center; }
+  .week-label { font-weight: 600; font-size: 0.8125rem; color: #212529; }
+  .lesson-label { font-size: 0.6875rem; color: #6c757d; }
+  .td-title { text-align: left; font-weight: 500; color: #212529; }
+  .td-type { text-align: center; }
+  .td-nosetting { color: #adb5bd; font-style: italic; }
+
+  .type-tag {
+    display: inline-block; padding: 0.125rem 0.375rem; border-radius: 3px;
+    font-size: 0.6875rem; font-weight: 600;
+  }
+  .type-vod { background: #e7f1ff; color: #0d6efd; }
+  .type-live { background: #fff3cd; color: #856404; }
+
+  .input-inline {
+    width: 52px; padding: 0.25rem 0.375rem; border: 1px solid #c7cdd1;
+    border-radius: 3px; font-size: 0.8125rem; text-align: center;
+  }
+  .input-inline-wide {
+    width: 72px; padding: 0.25rem 0.375rem; border: 1px solid #c7cdd1;
+    border-radius: 3px; font-size: 0.8125rem; text-align: center;
+  }
+  .input-datetime-sm {
+    padding: 0.25rem 0.25rem; border: 1px solid #c7cdd1;
+    border-radius: 3px; font-size: 0.75rem; width: 100%;
+  }
+  .input-inline:focus, .input-inline-wide:focus, .input-datetime-sm:focus {
+    outline: none; border-color: #0374B5; box-shadow: 0 0 0 2px rgba(3,116,181,0.2);
+  }
+  .hint-sm { font-size: 0.6875rem; color: #6c757d; }
+
+  .field-disabled input { opacity: 0.3; pointer-events: none; }
+  .field-disabled { opacity: 0.3; pointer-events: none; }
+
+  /* Pagination */
+  .bulk-pagination {
+    display: flex; justify-content: center; gap: 0.25rem;
+    padding: 1rem 0;
+  }
+  .page-link {
+    padding: 0.375rem 0.75rem; border: 1px solid #dee2e6; border-radius: 4px;
+    text-decoration: none; color: #0d6efd; font-size: 0.8125rem;
+  }
+  .page-link:hover { background: #f0f4f8; }
+  .page-current {
+    padding: 0.375rem 0.75rem; border: 1px solid #0d6efd; border-radius: 4px;
+    background: #0d6efd; color: white; font-size: 0.8125rem;
+  }
+
+  /* Actions */
+  .bulk-actions {
+    display: flex; justify-content: flex-end; gap: 0.75rem;
+    padding: 1rem 0;
+  }
+  .btn-cancel {
+    background: transparent; color: #6c757d; border: 1px solid #c7cdd1;
+    padding: 0.5rem 1.25rem; font-size: 0.875rem; border-radius: 4px;
+    cursor: pointer; text-decoration: none;
+  }
+  .btn-cancel:hover { background: #f8f9fa; }
+  .btn-primary {
+    background: #0374B5; color: white; border: none;
+    padding: 0.5rem 1.25rem; font-size: 0.875rem; border-radius: 4px; cursor: pointer;
+  }
+  .btn-primary:hover { background: #025a8c; }
+
+  .empty-state {
+    text-align: center; padding: 3rem; color: #6c757d;
+    background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // 출결허용 체크 → 하위 필드 토글
+  document.querySelectorAll('.cb-attendance').forEach(function(cb) {
+    var sid = cb.dataset.sid;
+    function toggle() {
+      document.querySelectorAll('.att-' + sid).forEach(function(el) {
+        if (cb.checked) {
+          el.classList.remove('field-disabled');
+        } else {
+          el.classList.add('field-disabled');
+        }
+      });
+    }
+    cb.addEventListener('change', toggle);
+    toggle();
+  });
+
+  // 지각허용 체크 → 지각 필드 토글
+  document.querySelectorAll('.cb-tardiness').forEach(function(cb) {
+    var sid = cb.dataset.sid;
+    function toggle() {
+      document.querySelectorAll('.tard-' + sid).forEach(function(el) {
+        if (cb.checked) {
+          el.classList.remove('field-disabled');
+        } else {
+          el.classList.add('field-disabled');
+        }
+      });
+    }
+    cb.addEventListener('change', toggle);
+    toggle();
+  });
+});
+</script>

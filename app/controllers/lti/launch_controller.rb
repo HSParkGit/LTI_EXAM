@@ -268,7 +268,10 @@ module Lti
         # VOD (Panopto): custom_canvas_user_login_id = $Canvas.user.loginId
         # LIVE (Zoom): email (위에서 이미 추출)
         custom_canvas_user_login_id: custom_params["canvas_user_login_id"] || custom_params[:canvas_user_login_id],
-        custom_canvas_user_id: custom_params["canvas_user_id"] || custom_params[:canvas_user_id] || custom_user_id
+        custom_canvas_user_id: custom_params["canvas_user_id"] || custom_params[:canvas_user_id] || custom_user_id,
+
+        # Canvas 사용자 언어 설정
+        locale: payload["locale"]
       }
     end
 

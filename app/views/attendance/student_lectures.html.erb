@@ -13,19 +13,19 @@
 
   <div class="tab-row">
     <div class="tab-nav">
-      <%= link_to 'By Content', attendance_index_path, class: 'tab' %>
-      <%= link_to 'By Student', student_lectures_attendance_index_path, class: 'tab active' %>
+      <%= link_to t('attendance.by_content'), attendance_index_path, class: 'tab' %>
+      <%= link_to t('attendance.by_student'), student_lectures_attendance_index_path, class: 'tab active' %>
     </div>
     <% if @students.present? && @lesson_slots_by_week.present? %>
       <a href="<%= student_lectures_excel_attendance_index_path %>" class="btn-excel">
-        <span class="excel-icon">&darr;</span> Download Excel
+        <span class="excel-icon">&darr;</span> <%= t('attendance.download_excel') %>
       </a>
     <% end %>
   </div>
 
   <% if @students.blank? || @lesson_slots_by_week.blank? %>
     <div class="empty-state">
-      <p>수강생 또는 출결 세션이 없습니다.</p>
+      <p><%= t('attendance.no_students') %></p>
     </div>
   <% else %>
     <div class="matrix-wrapper">
@@ -36,13 +36,13 @@
               <input type="checkbox" id="selectAll" title="전체 선택">
             </th>
             <th class="sticky-col col-name sortable" rowspan="2" data-sort="name">
-              Name <span class="sort-icon">&#8597;</span>
+              <%= t('attendance.name') %> <span class="sort-icon">&#8597;</span>
             </th>
-            <th class="sticky-col col-student-number" rowspan="2">Student Number</th>
-            <th class="sticky-col col-stat-present" rowspan="2">Present</th>
-            <th class="sticky-col col-stat-late" rowspan="2">Late</th>
-            <th class="sticky-col col-stat-absent" rowspan="2">Absent</th>
-            <th class="sticky-col col-stat-pending" rowspan="2">Pending</th>
+            <th class="sticky-col col-student-number" rowspan="2"><%= t('attendance.student_number') %></th>
+            <th class="sticky-col col-stat-present" rowspan="2"><%= t('attendance.present') %></th>
+            <th class="sticky-col col-stat-late" rowspan="2"><%= t('attendance.late') %></th>
+            <th class="sticky-col col-stat-absent" rowspan="2"><%= t('attendance.absent') %></th>
+            <th class="sticky-col col-stat-pending" rowspan="2"><%= t('attendance.pending') %></th>
             <% @lesson_slots_by_week.each do |week, slots| %>
               <th class="week-header" colspan="<%= slots.count %>">Week <%= week %></th>
             <% end %>
@@ -64,7 +64,10 @@
                 <input type="checkbox" class="row-check" value="<%= student[:login_id] || student[:email] %>">
               </td>
               <td class="sticky-col col-name" title="<%= student[:name] %>">
-                <%= student[:name] %>
+                <span class="student-name-link"
+                      data-student-id="<%= student[:login_id] || student[:email] %>">
+                  <%= student[:name] %>
+                </span>
               </td>
               <td class="sticky-col col-student-number"><%= student[:login_id] %></td>
               <td class="sticky-col col-stat-present"><%= student[:stats][:present] %></td>
@@ -191,6 +194,10 @@
     left: 32px; width: 120px; min-width: 120px; text-align: left;
     white-space: normal !important; word-break: break-word; line-height: 1.4;
   }
+  .student-name-link {
+    color: #1a4d8f; text-decoration: none; font-weight: 500; cursor: pointer;
+  }
+  .student-name-link:hover { color: #0d6efd; text-decoration: underline; }
   .col-student-number {
     left: 152px; width: 100px; min-width: 100px; text-align: center;
     font-size: 0.8rem; color: #495057;
@@ -368,16 +375,6 @@ document.addEventListener('DOMContentLoaded', function() {
       var items = JSON.parse(this.dataset.items || '[]');
       if (items.length === 0) return;
 
-      // 세션이 1개면 바로 히스토리 모달, 여러 개면 popover로 선택
-      if (items.length === 1 && typeof openHistoryModal === 'function') {
-        var item = items[0];
-        if (item.session_id && item.identifier) {
-          openHistoryModal(item.session_id, item.identifier);
-          return;
-        }
-      }
-
-      // 여러 세션: popover 표시
       if (activeCell === this) { closePopover(); return; }
       activeCell = this;
 
@@ -432,4 +429,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<%= render 'attendance/student_detail_modal' %>
 <%= render 'attendance/history_modal' %>
+
+<script>
+document.querySelectorAll('.student-name-link').forEach(function(el) {
+  el.addEventListener('click', function() {
+    var studentId = this.dataset.studentId;
+    if (studentId && typeof openStudentDetailModal === 'function') {
+      openStudentDetailModal(studentId);
+    }
+  });
+});
+</script>

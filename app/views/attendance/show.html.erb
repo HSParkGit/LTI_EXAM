@@ -3,7 +3,7 @@
   <div class="context-path">
     <div class="context-nav">
       <%= link_to attendance_index_path, class: 'context-link' do %>
-        <span class="context-arrow">&lsaquo;</span> Attendance Records
+        <span class="context-arrow">&lsaquo;</span> <%= t('attendance.attendance_records') %>
       <% end %>
       <span class="context-sep">/</span>
     </div>
@@ -16,6 +16,66 @@
       </div>
     </div>
   </div>
+
+  <!-- Setting Summary -->
+  <% setting = @session.setting %>
+  <% if setting %>
+    <div class="setting-summary">
+      <div class="setting-items">
+        <div class="setting-item">
+          <span class="setting-label"><%= t('attendance.setting_attendance') %></span>
+          <span class="setting-val <%= setting.allow_attendance? ? 'val-on' : 'val-off' %>"><%= setting.allow_attendance? ? t('attendance.setting_on') : t('attendance.setting_off') %></span>
+        </div>
+        <% if setting.allow_attendance? %>
+          <% if @session.vod? %>
+            <div class="setting-item">
+              <span class="setting-label"><%= t('attendance.setting_required') %></span>
+              <span class="setting-val"><%= setting.percent_required || '-' %>%</span>
+            </div>
+            <div class="setting-item">
+              <span class="setting-label"><%= t('attendance.setting_period') %></span>
+              <span class="setting-val"><%= setting.unlock_at&.strftime('%m/%d %H:%M') || '-' %> ~ <%= setting.attendance_finish_at&.strftime('%m/%d %H:%M') || '-' %></span>
+            </div>
+            <div class="setting-item">
+              <span class="setting-label"><%= t('attendance.setting_tardiness') %></span>
+              <span class="setting-val <%= setting.allow_tardiness? ? 'val-on' : 'val-off' %>"><%= setting.allow_tardiness? ? t('attendance.setting_on') : t('attendance.setting_off') %></span>
+            </div>
+            <% if setting.allow_tardiness? && setting.tardiness_finish_at %>
+              <div class="setting-item">
+                <span class="setting-label"><%= t('attendance.setting_late_until') %></span>
+                <span class="setting-val"><%= setting.tardiness_finish_at.strftime('%m/%d %H:%M') %></span>
+              </div>
+            <% end %>
+          <% else %>
+            <div class="setting-item">
+              <span class="setting-label"><%= t('attendance.setting_threshold') %></span>
+              <span class="setting-val"><%= setting.attendance_threshold || '-' %>%</span>
+            </div>
+            <% if setting.start_time %>
+              <div class="setting-item">
+                <span class="setting-label"><%= t('attendance.setting_start') %></span>
+                <span class="setting-val"><%= setting.start_time.strftime('%m/%d %H:%M') %></span>
+              </div>
+            <% end %>
+            <% if setting.duration %>
+              <div class="setting-item">
+                <span class="setting-label"><%= t('attendance.setting_duration') %></span>
+                <span class="setting-val"><%= setting.duration_in_minutes %>min</span>
+              </div>
+            <% end %>
+            <div class="setting-item">
+              <span class="setting-label"><%= t('attendance.setting_tardiness') %></span>
+              <% if setting.allow_tardiness? && setting.tardiness_threshold %>
+                <span class="setting-val val-on"><%= setting.tardiness_threshold %>%</span>
+              <% else %>
+                <span class="setting-val val-off"><%= t('attendance.setting_off') %></span>
+              <% end %>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
 
   <% if flash[:notice] %>
     <div class="alert alert-success"><%= flash[:notice] %></div>
@@ -31,37 +91,37 @@
         <div class="stat-card">
           <span class="stat-icon icon-present">●</span>
           <div class="stat-info">
-            <span class="stat-label">Present</span>
+            <span class="stat-label"><%= t('attendance.present') %></span>
             <span class="stat-number"><%= @stats[:present] || 0 %></span>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon icon-late">▲</span>
           <div class="stat-info">
-            <span class="stat-label">Late</span>
+            <span class="stat-label"><%= t('attendance.late') %></span>
             <span class="stat-number"><%= @stats[:late] || 0 %></span>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon icon-absent">✕</span>
           <div class="stat-info">
-            <span class="stat-label">Absent</span>
+            <span class="stat-label"><%= t('attendance.absent') %></span>
             <span class="stat-number"><%= @stats[:absent] || 0 %></span>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon icon-pending">—</span>
           <div class="stat-info">
-            <span class="stat-label">Pending</span>
+            <span class="stat-label"><%= t('attendance.pending') %></span>
             <span class="stat-number"><%= @stats[:pending] || 0 %></span>
           </div>
         </div>
       </div>
       <div class="stats-actions">
-        <a href="<%= edit_attendance_path(@session) %>" class="btn-edit">Edit</a>
+        <a href="<%= edit_attendance_path(@session) %>" class="btn-edit"><%= t('attendance.edit') %></a>
         <% if @students.present? && @students.any? %>
           <a href="<%= download_excel_attendance_path(@session) %>" class="btn-excel">
-            <span class="excel-icon">&darr;</span> Download Excel
+            <span class="excel-icon">&darr;</span> <%= t('attendance.download_excel') %>
           </a>
         <% end %>
       </div>
@@ -76,11 +136,11 @@
               <input type="checkbox" id="selectAll" title="전체 선택">
             </th>
             <th class="col-name sortable" data-sort="name">
-              Name <span class="sort-icon">&#8597;</span>
+              <%= t('attendance.name') %> <span class="sort-icon">&#8597;</span>
             </th>
-            <th class="col-student-number">Student Number</th>
-            <th class="col-status">Attendance Status</th>
-            <th class="col-history">History</th>
+            <th class="col-student-number"><%= t('attendance.student_number') %></th>
+            <th class="col-status"><%= t('attendance.attendance_status') %></th>
+            <th class="col-history"><%= t('attendance.history') %></th>
           </tr>
         </thead>
         <tbody>
@@ -91,7 +151,8 @@
                 <input type="checkbox" class="row-check" value="<%= student_data[:student_id] %>">
               </td>
               <td class="col-name">
-                <span class="student-name-link" data-student-id="<%= student_data[:student_id] %>">
+                <span class="student-name-link"
+                      data-student-id="<%= student_data[:student_id] %>">
                   <%= student_data[:user_name] || student_data[:student_id] %>
                 </span>
               </td>
@@ -103,7 +164,7 @@
                 <span class="history-link"
                       data-student-id="<%= student_data[:student_id] %>"
                       data-session-id="<%= @session.id %>">
-                  Attendance History
+                  <%= t('attendance.history') %>
                 </span>
               </td>
             </tr>
@@ -112,7 +173,7 @@
       </table>
     <% else %>
       <div class="empty-state">
-        <p>수강생이 없거나 Canvas API에 연결할 수 없습니다.</p>
+        <p><%= t('attendance.no_students') %></p>
       </div>
     <% end %>
 
@@ -240,6 +301,17 @@
   .btn-excel:hover { background-color: #f8f9fa; border-color: #adb5bd; }
 
   .stats-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+  .setting-summary {
+    margin-bottom: 1rem; padding: 0.625rem 1rem;
+    background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;
+  }
+  .setting-items { display: flex; flex-wrap: wrap; gap: 0.375rem 1.25rem; }
+  .setting-item { display: flex; align-items: center; gap: 0.375rem; }
+  .setting-label { font-size: 0.6875rem; color: #6c757d; font-weight: 500; }
+  .setting-val { font-size: 0.75rem; font-weight: 600; color: #212529; }
+  .val-on { color: #0B874B; }
+  .val-off { color: #adb5bd; }
   .btn-edit {
     display: inline-flex; align-items: center;
     padding: 0.5rem 1rem; border: 1px solid #dee2e6; border-radius: 0.375rem;
@@ -350,10 +422,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // ── Student Name Click → 학생 상세 (추후 연결) ──
+  // ── Student Name Click → 학생 상세 모달 ──
   document.querySelectorAll('.student-name-link').forEach(function(el) {
     el.addEventListener('click', function() {
-      console.log('Student detail:', this.dataset.studentId);
+      var studentId = this.dataset.studentId;
+      if (studentId && typeof openStudentDetailModal === 'function') {
+        openStudentDetailModal(studentId);
+      }
     });
   });
 
@@ -370,4 +445,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<%= render 'attendance/student_detail_modal' %>
 <%= render 'attendance/history_modal' %>

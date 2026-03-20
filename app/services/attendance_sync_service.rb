@@ -138,7 +138,7 @@ class AttendanceSyncService
     session.build_vod_setting(
       allow_attendance: true,
       allow_tardiness: true,
-      percent_required: 80,
+      percent_required: 95,
       unlock_at: unlock_at,
       attendance_finish_at: unlock_at + 7.days,
       tardiness_finish_at: unlock_at + 14.days

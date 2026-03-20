@@ -2,27 +2,27 @@
 <div id="historyModal" class="history-modal-overlay" style="display:none;">
   <div class="history-modal">
     <div class="history-modal-header">
-      <h2 class="history-modal-title">Attendance History</h2>
+      <h2 class="history-modal-title"><%= t('attendance.attendance_history') %></h2>
       <button class="history-modal-close" id="historyModalClose">&times;</button>
     </div>
 
     <div class="history-modal-controls">
       <div class="history-status-badges" id="historyStatusBadges">
         <button class="status-badge" data-status="present">
-          <span class="status-icon icon-present">●</span> Present
+          <span class="status-icon icon-present">●</span> <%= t('attendance.present') %>
         </button>
         <button class="status-badge" data-status="late">
-          <span class="status-icon icon-late">▲</span> Late
+          <span class="status-icon icon-late">▲</span> <%= t('attendance.late') %>
         </button>
         <button class="status-badge" data-status="absent">
-          <span class="status-icon icon-absent">✕</span> Absent
+          <span class="status-icon icon-absent">✕</span> <%= t('attendance.absent') %>
         </button>
         <button class="status-badge" data-status="pending">
-          <span class="status-icon icon-pending">—</span> Pending
+          <span class="status-icon icon-pending">—</span> <%= t('attendance.pending') %>
         </button>
       </div>
       <button class="btn-excel-modal" id="historyDownloadExcel">
-        <span class="excel-icon">&darr;</span> Download Excel
+        <span class="excel-icon">&darr;</span> <%= t('attendance.download_excel') %>
       </button>
     </div>
 
@@ -32,10 +32,10 @@
         <thead>
           <tr>
             <th class="col-no">No.</th>
-            <th class="col-date">Date</th>
-            <th class="col-time">Time</th>
-            <th class="col-rate">View Rate</th>
-            <th class="col-notes">Notes</th>
+            <th class="col-date"><%= t('attendance.date') %></th>
+            <th class="col-time"><%= t('attendance.time') %></th>
+            <th class="col-rate"><%= t('attendance.view_rate') %></th>
+            <th class="col-notes"><%= t('attendance.notes') %></th>
           </tr>
         </thead>
         <tbody id="historyTableBody"></tbody>
@@ -46,8 +46,8 @@
     </div>
 
     <div class="history-modal-footer">
-      <button class="btn-cancel" id="historyCancel">Cancel</button>
-      <button class="btn-save" id="historySave" disabled>Save</button>
+      <button class="btn-cancel" id="historyCancel"><%= t('attendance.cancel') %></button>
+      <button class="btn-save" id="historySave" disabled><%= t('attendance.save') %></button>
     </div>
   </div>
 </div>
