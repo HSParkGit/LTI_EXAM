@@ -62,8 +62,11 @@ class AttendanceController < ApplicationController
 
   # 세션 수정 폼 (설정 조정용)
   def edit
-    @session.build_vod_setting unless @session.vod_setting
-    @session.build_live_setting unless @session.live_setting
+    if @session.vod?
+      @session.build_vod_setting unless @session.vod_setting
+    else
+      @session.build_live_setting unless @session.live_setting
+    end
   end
 
   # 세션 수정
@@ -102,62 +105,35 @@ class AttendanceController < ApplicationController
     @lesson_slots_by_week = result[:lesson_slots_by_week]
   end
 
-  # 학생 히스토리 API (JSON) - 셀 클릭 시 팝오버용
-  # 특정 세션의 특정 학생 출결 변경 이력 + 시청/참여 로그
+  # 학생 히스토리 API (JSON) - 히스토리 모달용
+  # ViewLogsService 기반: 30분 gap 세션 그룹핑 + 강제 변경 이력 통합
   def student_history
     identifier = params[:student_identifier]
     return render(json: { error: '학생 식별자가 필요합니다.' }, status: :bad_request) if identifier.blank?
 
-    results = if @session.vod?
-                PanoptoViewResult.history_for_student(@session.content_tag_id, identifier)
-              else
-                ZoomViewResult.history_for_student(@session.content_tag_id, identifier)
-              end
+    result = AttendanceViewLogsService.new(
+      session: @session,
+      student_identifier: identifier
+    ).call
 
-    logs = if @session.vod?
-             PanoptoViewLog.for_student(@session.content_tag_id, identifier)
-           else
-             ZoomViewLog.for_student(@session.content_tag_id, identifier)
-           end
-
-    total_time = if @session.vod?
-                   PanoptoViewLog.total_seconds_viewed(@session.content_tag_id, identifier)
-                 else
-                   ZoomViewLog.total_duration(@session.content_tag_id, identifier)
-                 end
+    # 현재 출결 상태 조회
+    current_result = @session.find_student_result(identifier)
+    current_status = if current_result
+                       AttendanceStatsCalculator.convert_state_to_string(current_result.attendance_state, session: @session)
+                     else
+                       AttendanceStatsCalculator.resolve_pending_status(@session)
+                     end
 
     render json: {
+      success: result[:success],
       session: {
         id: @session.id,
         title: @session.full_title,
         type: @session.attendance_type
       },
-      results: results.map { |r|
-        {
-          attendance_state: r.attendance_state,
-          state_text: r.attendance_state_text,
-          teacher_forced: r.teacher_forced?,
-          created_at: r.created_at&.in_time_zone('Asia/Seoul')&.strftime('%Y-%m-%d %H:%M:%S')
-        }
-      },
-      logs: logs.map { |l|
-        if @session.vod?
-          {
-            event_time: l.event_time,
-            seconds_viewed: l.seconds_viewed,
-            viewer_rating: l.viewer_rating,
-            start_position: l.start_position
-          }
-        else
-          {
-            join_time: l.join_time,
-            leave_time: l.leave_time,
-            duration: l.duration,
-            viewer_rating: l.viewer_rating
-          }
-        end
-      },
-      total_time: total_time || 0
+      current_status: current_status,
+      records: result[:records] || [],
+      raw_records: result[:raw_records] || []
     }
   end
 
@@ -366,7 +342,7 @@ class AttendanceController < ApplicationController
   # 세션 파라미터 (수정용 - 설정만 허용)
   def session_params
     params.require(:attendance_session).permit(
-      :title,
+      :week, :lesson_id, :title,
       vod_setting_attributes: [
         :id, :session_id, :allow_attendance, :allow_tardiness,
         :percent_required, :unlock_at, :lock_at,

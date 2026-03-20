@@ -1,0 +1,332 @@
+<!-- Attendance History Modal -->
+<div id="historyModal" class="history-modal-overlay" style="display:none;">
+  <div class="history-modal">
+    <div class="history-modal-header">
+      <h2 class="history-modal-title">Attendance History</h2>
+      <button class="history-modal-close" id="historyModalClose">&times;</button>
+    </div>
+
+    <div class="history-modal-controls">
+      <div class="history-status-badges" id="historyStatusBadges">
+        <button class="status-badge" data-status="present">
+          <span class="status-icon icon-present">●</span> Present
+        </button>
+        <button class="status-badge" data-status="late">
+          <span class="status-icon icon-late">▲</span> Late
+        </button>
+        <button class="status-badge" data-status="absent">
+          <span class="status-icon icon-absent">✕</span> Absent
+        </button>
+        <button class="status-badge" data-status="pending">
+          <span class="status-icon icon-pending">—</span> Pending
+        </button>
+      </div>
+      <button class="btn-excel-modal" id="historyDownloadExcel">
+        <span class="excel-icon">&darr;</span> Download Excel
+      </button>
+    </div>
+
+    <div class="history-modal-body" id="historyModalBody">
+      <div class="history-loading" id="historyLoading">Loading...</div>
+      <table class="history-table" id="historyTable" style="display:none;">
+        <thead>
+          <tr>
+            <th class="col-no">No.</th>
+            <th class="col-date">Date</th>
+            <th class="col-time">Time</th>
+            <th class="col-rate">View Rate</th>
+            <th class="col-notes">Notes</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+      </table>
+      <div class="history-empty" id="historyEmpty" style="display:none;">
+        No attendance logs found.
+      </div>
+    </div>
+
+    <div class="history-modal-footer">
+      <button class="btn-cancel" id="historyCancel">Cancel</button>
+      <button class="btn-save" id="historySave" disabled>Save</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .history-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .history-modal {
+    background: white; border-radius: 12px;
+    width: 90%; max-width: 800px; max-height: 70vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .history-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1.25rem 1.5rem 0.75rem;
+  }
+  .history-modal-title { font-size: 1.25rem; font-weight: 700; color: #212529; margin: 0; }
+  .history-modal-close {
+    background: none; border: none; font-size: 1.5rem; color: #6c757d;
+    cursor: pointer; padding: 0; line-height: 1;
+  }
+  .history-modal-close:hover { color: #212529; }
+
+  .history-modal-controls {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem 1.5rem;
+  }
+
+  .history-status-badges { display: flex; gap: 0.5rem; }
+  .status-badge {
+    display: flex; align-items: center; gap: 0.375rem;
+    padding: 0.375rem 0.75rem; border: 1px solid #dee2e6; border-radius: 4px;
+    background: white; cursor: pointer; font-size: 0.8125rem; font-weight: 500;
+    color: #212529; transition: all 0.15s;
+  }
+  .status-badge:hover { background-color: #f8f9fa; }
+  .status-badge.active-present { border-color: #1E7B1E; background-color: #F3FCF3; }
+  .status-badge.active-late { border-color: #FF6A33; background-color: #FFF4F0; }
+  .status-badge.active-absent { border-color: #CD0404; background-color: #FEF1F1; }
+  .status-badge.active-pending { border-color: #8A8A8A; background-color: #DCDCDC; }
+
+  .btn-excel-modal {
+    display: flex; align-items: center; gap: 0.375rem;
+    padding: 0.375rem 0.875rem; border: 1px solid #dee2e6; border-radius: 4px;
+    background: white; cursor: pointer; font-size: 0.8125rem; font-weight: 600;
+    color: #212529;
+  }
+  .btn-excel-modal:hover { background-color: #f8f9fa; border-color: #adb5bd; }
+
+  .history-modal-body {
+    flex: 1; overflow-y: auto; border-top: 1px solid #e9ecef;
+    border-bottom: 1px solid #e9ecef; padding: 0;
+    min-height: 200px;
+  }
+
+  .history-loading, .history-empty {
+    display: flex; align-items: center; justify-content: center;
+    padding: 3rem; color: #6c757d; font-size: 0.875rem;
+  }
+
+  .history-table { width: 100%; border-collapse: collapse; }
+  .history-table thead { position: sticky; top: 0; z-index: 1; }
+  .history-table th {
+    padding: 0.75rem 1.25rem; text-align: center;
+    background-color: #f2f2f3; font-weight: 500; font-size: 0.8125rem;
+    color: #212529;
+  }
+  .history-table td {
+    padding: 0.75rem 1.25rem; text-align: center;
+    border-bottom: 1px solid #f0f0f0; font-size: 0.8125rem;
+    color: #212529; font-weight: 500;
+  }
+
+  .col-no { width: 48px; }
+  .col-date { width: 140px; }
+  .col-time { width: 190px; }
+  .col-rate { width: 160px; }
+  .col-notes { width: auto; }
+
+  .history-modal-footer {
+    display: flex; justify-content: center; gap: 0.75rem;
+    padding: 1rem 1.5rem;
+  }
+  .btn-cancel, .btn-save {
+    padding: 0.5rem 3rem; border-radius: 6px; font-size: 0.875rem;
+    font-weight: 600; cursor: pointer; border: none;
+  }
+  .btn-cancel { background-color: #e9ecef; color: #495057; }
+  .btn-cancel:hover { background-color: #dee2e6; }
+  .btn-save { background-color: #1a4d8f; color: white; }
+  .btn-save:hover:not(:disabled) { background-color: #153d73; }
+  .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+
+<script>
+(function() {
+  var modal = document.getElementById('historyModal');
+  var modalBody = document.getElementById('historyModalBody');
+  var loading = document.getElementById('historyLoading');
+  var table = document.getElementById('historyTable');
+  var tableBody = document.getElementById('historyTableBody');
+  var emptyState = document.getElementById('historyEmpty');
+  var badges = document.querySelectorAll('.status-badge');
+  var saveBtn = document.getElementById('historySave');
+  var cancelBtn = document.getElementById('historyCancel');
+  var closeBtn = document.getElementById('historyModalClose');
+  var excelBtn = document.getElementById('historyDownloadExcel');
+
+  var currentSessionId = null;
+  var currentStudentId = null;
+  var originalStatus = null;
+  var selectedStatus = null;
+  var currentRecords = [];
+  var currentRawRecords = [];
+
+  // Status → state code mapping
+  var statusToState = { present: 4, excused: 3, late: 2, absent: 1, pending: 0 };
+
+  // 모달 열기
+  window.openHistoryModal = function(sessionId, studentId) {
+    currentSessionId = sessionId;
+    currentStudentId = studentId;
+    originalStatus = null;
+    selectedStatus = null;
+
+    modal.style.display = 'flex';
+    loading.style.display = 'flex';
+    table.style.display = 'none';
+    emptyState.style.display = 'none';
+    saveBtn.disabled = true;
+
+    // 배지 초기화
+    badges.forEach(function(b) {
+      b.className = 'status-badge';
+    });
+
+    // API 호출
+    var url = '/attendance/' + sessionId + '/student_history?student_identifier=' + encodeURIComponent(studentId);
+    fetch(url, { headers: { 'Accept': 'application/json' } })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        loading.style.display = 'none';
+
+        if (!data.success) {
+          emptyState.textContent = data.error || 'Failed to load.';
+          emptyState.style.display = 'flex';
+          return;
+        }
+
+        originalStatus = data.current_status || 'pending';
+        selectedStatus = originalStatus;
+        currentRecords = data.records || [];
+        currentRawRecords = data.raw_records || [];
+
+        // 현재 상태 배지 활성화
+        setActiveBadge(originalStatus);
+
+        if (currentRecords.length === 0) {
+          emptyState.style.display = 'flex';
+          return;
+        }
+
+        // 테이블 렌더링
+        renderTable(currentRecords);
+        table.style.display = 'table';
+      })
+      .catch(function(err) {
+        loading.style.display = 'none';
+        emptyState.textContent = 'Error loading data.';
+        emptyState.style.display = 'flex';
+        console.error('History fetch error:', err);
+      });
+  };
+
+  function setActiveBadge(status) {
+    badges.forEach(function(b) {
+      var s = b.dataset.status;
+      b.className = (s === status) ? 'status-badge active-' + s : 'status-badge';
+    });
+  }
+
+  function renderTable(records) {
+    var html = '';
+    records.forEach(function(r) {
+      html += '<tr>';
+      html += '<td>' + r.number + '</td>';
+      html += '<td>' + (r.date || '-') + '</td>';
+      html += '<td>' + (r.time || '-') + '</td>';
+      html += '<td>' + (r.view_rate || '-') + '</td>';
+      html += '<td>' + (r.notes || '-') + '</td>';
+      html += '</tr>';
+    });
+    tableBody.innerHTML = html;
+  }
+
+  // 배지 클릭 → 상태 변경
+  badges.forEach(function(badge) {
+    badge.addEventListener('click', function() {
+      selectedStatus = this.dataset.status;
+      setActiveBadge(selectedStatus);
+      saveBtn.disabled = (selectedStatus === originalStatus);
+    });
+  });
+
+  // Save 클릭 → 강제 변경 API 호출
+  saveBtn.addEventListener('click', function() {
+    if (!currentSessionId || !currentStudentId || selectedStatus === originalStatus) return;
+    saveBtn.disabled = true;
+
+    var stateCode = statusToState[selectedStatus];
+    fetch('/attendance/' + currentSessionId + '/update_attendance', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+      },
+      body: JSON.stringify({ student_identifier: currentStudentId, state: stateCode })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        closeModal();
+        // 페이지 새로고침으로 상태 반영
+        window.location.reload();
+      } else {
+        alert(data.error || 'Failed to update.');
+        saveBtn.disabled = false;
+      }
+    })
+    .catch(function(err) {
+      alert('Error updating attendance.');
+      saveBtn.disabled = false;
+      console.error('Update error:', err);
+    });
+  });
+
+  // Excel 다운로드
+  excelBtn.addEventListener('click', function() {
+    var records = currentRawRecords.length > 0 ? currentRawRecords : currentRecords;
+    if (records.length === 0) { alert('No data to export.'); return; }
+
+    var csv = '\uFEFF'; // BOM
+    csv += 'No.,Date,Time,View Rate,Notes\n';
+    records.forEach(function(r) {
+      csv += r.number + ',"' + (r.date || '') + '","' + (r.time || '') + '","' + (r.view_rate || '') + '","' + (r.notes || '') + '"\n';
+    });
+
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'attendance_history_' + currentStudentId + '.csv';
+    link.click();
+  });
+
+  // 닫기
+  function closeModal() {
+    modal.style.display = 'none';
+    currentSessionId = null;
+    currentStudentId = null;
+    currentRecords = [];
+    currentRawRecords = [];
+  }
+
+  cancelBtn.addEventListener('click', closeModal);
+  closeBtn.addEventListener('click', closeModal);
+
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) closeModal();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal.style.display !== 'none') closeModal();
+  });
+})();
+</script>

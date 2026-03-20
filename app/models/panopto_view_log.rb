@@ -27,4 +27,32 @@ class PanoptoViewLog < ApplicationRecord
   def self.total_seconds_viewed(content_tag_id, user_name)
     for_student(content_tag_id, user_name).sum(:seconds_viewed)
   end
+
+  # event_time을 Time 객체로 변환 (KST)
+  def event_time_parsed
+    return nil unless event_time.present?
+
+    Time.parse(event_time).in_time_zone('Asia/Seoul')
+  rescue ArgumentError
+    nil
+  end
+
+  # 시청 시간 범위 계산
+  # start_position = 세션 시작으로부터 이 구간까지의 경과 시간(초)
+  # seconds_viewed = 이 구간의 실제 시청 시간(초)
+  def view_time_range
+    return nil unless event_time_parsed && start_position && seconds_viewed
+
+    start_t = event_time_parsed + start_position.seconds
+    end_t = start_t + seconds_viewed.seconds
+    { start: start_t, end: end_t }
+  end
+
+  # 시청 시간 범위 문자열 (예: "11:30 AM - 12:00 PM")
+  def view_time_range_string
+    range = view_time_range
+    return '-' unless range
+
+    "#{range[:start].strftime('%I:%M %p')} - #{range[:end].strftime('%I:%M %p')}"
+  end
 end

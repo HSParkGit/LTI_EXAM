@@ -1,21 +1,19 @@
 <div class="attendance-container">
-  <!-- Breadcrumb -->
-  <div class="breadcrumb">
-    <%= link_to attendance_index_path, class: 'breadcrumb-link' do %>
-      <span class="breadcrumb-arrow">&lsaquo;</span> Attendance Records
-    <% end %>
-  </div>
-
-  <!-- Course Header -->
-  <div class="course-header">
-    <% if @course_label.present? %>
-      <span class="course-code-badge"><%= @course_label %></span>
-    <% end %>
-    <div class="course-header-info">
-      <span class="course-header-title">Week <%= @session.week %> Lesson <%= @session.lesson_id %></span>
-      <% if @instructor_names.present? %>
-        <span class="course-header-instructor"><%= @instructor_names %></span>
+  <!-- Context Path -->
+  <div class="context-path">
+    <div class="context-nav">
+      <%= link_to attendance_index_path, class: 'context-link' do %>
+        <span class="context-arrow">&lsaquo;</span> Attendance Records
       <% end %>
+      <span class="context-sep">/</span>
+    </div>
+    <div class="context-main">
+      <h1 class="context-title"><%= @session.title.presence || @session.week_lesson_label %></h1>
+      <div class="context-badges">
+        <span class="badge-week">Week <%= @session.week %></span>
+        <span class="badge-lesson">Lesson <%= @session.lesson_id %></span>
+        <span class="badge-type type-<%= @session.attendance_type %>"><%= @session.attendance_type.upcase %></span>
+      </div>
     </div>
   </div>
 
@@ -59,11 +57,14 @@
           </div>
         </div>
       </div>
-      <% if @students.present? && @students.any? %>
-        <a href="<%= download_excel_attendance_path(@session) %>" class="btn-excel">
-          <span class="excel-icon">&darr;</span> Download Excel
-        </a>
-      <% end %>
+      <div class="stats-actions">
+        <a href="<%= edit_attendance_path(@session) %>" class="btn-edit">Edit</a>
+        <% if @students.present? && @students.any? %>
+          <a href="<%= download_excel_attendance_path(@session) %>" class="btn-excel">
+            <span class="excel-icon">&darr;</span> Download Excel
+          </a>
+        <% end %>
+      </div>
     </div>
 
     <!-- Student Table -->
@@ -166,33 +167,45 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
 
-  /* Breadcrumb */
-  .breadcrumb { margin-bottom: 1rem; }
-  .breadcrumb-link {
-    color: #0d6efd; text-decoration: none; font-size: 0.875rem; font-weight: 500;
+  /* Context Path */
+  .context-path {
+    padding: 1rem 1.25rem; background-color: #f0f4f8;
+    border-radius: 8px; margin-bottom: 1.5rem;
   }
-  .breadcrumb-link:hover { text-decoration: underline; }
-  .breadcrumb-arrow { font-size: 1.1rem; margin-right: 0.25rem; }
-
-  /* Course Header */
-  .course-header {
-    background-color: #f0f4f8;
-    padding: 0.75rem 1.25rem;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+  .context-nav {
+    display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem;
   }
-  .course-code-badge {
+  .context-link {
+    color: #0d6efd; text-decoration: none; font-size: 0.8125rem; font-weight: 500;
+  }
+  .context-link:hover { text-decoration: underline; }
+  .context-arrow { font-size: 1rem; margin-right: 0.125rem; }
+  .context-sep { color: #adb5bd; font-size: 0.8125rem; }
+  .context-main {
+    display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  }
+  .context-title {
+    font-size: 1.25rem; font-weight: 700; color: #212529; margin: 0;
+    border-bottom: none; padding-bottom: 0;
+  }
+  .context-badges { display: flex; gap: 0.375rem; align-items: center; }
+  .badge-week {
     display: inline-flex; align-items: center;
-    padding: 0.375rem 0.75rem; background-color: white;
-    font-size: 0.875rem; font-weight: 500; color: #333;
-    border-radius: 99px; white-space: nowrap;
+    padding: 0.1875rem 0.625rem; background-color: #1a4d8f; color: white;
+    font-size: 0.6875rem; font-weight: 600; border-radius: 99px;
   }
-  .course-header-info { display: flex; align-items: center; gap: 1rem; }
-  .course-header-title { font-size: 1.125rem; font-weight: 600; color: #212529; }
-  .course-header-instructor { font-size: 0.875rem; font-weight: 500; color: #1a4d8f; }
+  .badge-lesson {
+    display: inline-flex; align-items: center;
+    padding: 0.1875rem 0.625rem; background-color: #0B874B; color: white;
+    font-size: 0.6875rem; font-weight: 600; border-radius: 99px;
+  }
+  .badge-type {
+    display: inline-flex; align-items: center;
+    padding: 0.1875rem 0.625rem; border-radius: 99px;
+    font-size: 0.6875rem; font-weight: 600;
+  }
+  .type-vod { background-color: #e7f1ff; color: #0d6efd; }
+  .type-live { background-color: #fff3cd; color: #856404; }
 
   /* Stats Row */
   .stats-row {
@@ -225,6 +238,15 @@
     font-size: 0.875rem; font-weight: 500; white-space: nowrap;
   }
   .btn-excel:hover { background-color: #f8f9fa; border-color: #adb5bd; }
+
+  .stats-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .btn-edit {
+    display: inline-flex; align-items: center;
+    padding: 0.5rem 1rem; border: 1px solid #dee2e6; border-radius: 0.375rem;
+    background-color: white; color: #333; text-decoration: none;
+    font-size: 0.875rem; font-weight: 500;
+  }
+  .btn-edit:hover { background-color: #f8f9fa; border-color: #adb5bd; }
 
   /* Table */
   .students-table {
@@ -335,11 +357,17 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // ── History Click → 시청 히스토리 (추후 연결) ──
+  // ── History Click → 히스토리 모달 ──
   document.querySelectorAll('.history-link').forEach(function(el) {
     el.addEventListener('click', function() {
-      console.log('Attendance history:', this.dataset.studentId, 'session:', this.dataset.sessionId);
+      var sessionId = this.dataset.sessionId;
+      var studentId = this.dataset.studentId;
+      if (sessionId && studentId && typeof openHistoryModal === 'function') {
+        openHistoryModal(sessionId, studentId);
+      }
     });
   });
 });
 </script>
+
+<%= render 'attendance/history_modal' %>

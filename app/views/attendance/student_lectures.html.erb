@@ -282,6 +282,9 @@
     border: 1px solid #dee2e6;
     border-radius: 3px;
   }
+
+  .popover-item-clickable { cursor: pointer; }
+  .popover-item-clickable:hover { background-color: #f0f4f8; }
 </style>
 
 <script>
@@ -362,17 +365,31 @@ document.addEventListener('DOMContentLoaded', function() {
     cell.addEventListener('click', function(e) {
       e.stopPropagation();
 
+      var items = JSON.parse(this.dataset.items || '[]');
+      if (items.length === 0) return;
+
+      // 세션이 1개면 바로 히스토리 모달, 여러 개면 popover로 선택
+      if (items.length === 1 && typeof openHistoryModal === 'function') {
+        var item = items[0];
+        if (item.session_id && item.identifier) {
+          openHistoryModal(item.session_id, item.identifier);
+          return;
+        }
+      }
+
+      // 여러 세션: popover 표시
       if (activeCell === this) { closePopover(); return; }
       activeCell = this;
-
-      var items = JSON.parse(this.dataset.items || '[]');
-      if (items.length === 0) { closePopover(); return; }
 
       var html = '';
       items.forEach(function(item) {
         var title = item.title || 'Untitled';
         var icon = statusIcons[item.status] || statusIcons.pending;
-        html += '<div class="popover-item">';
+        html += '<div class="popover-item popover-item-clickable"';
+        if (item.session_id && item.identifier) {
+          html += ' data-session-id="' + item.session_id + '" data-identifier="' + item.identifier + '"';
+        }
+        html += '>';
         html += '<span class="popover-item-title" title="' + title + '">' + title + '</span>';
         html += '<span class="popover-item-right">';
         html += '<span class="popover-type">' + item.type.toUpperCase() + '</span>';
@@ -383,17 +400,27 @@ document.addEventListener('DOMContentLoaded', function() {
       popoverContent.innerHTML = html;
       popover.style.display = 'block';
 
+      // Popover 아이템 클릭 → 히스토리 모달
+      popover.querySelectorAll('.popover-item-clickable').forEach(function(pi) {
+        pi.addEventListener('click', function() {
+          var sid = this.dataset.sessionId;
+          var ident = this.dataset.identifier;
+          if (sid && ident && typeof openHistoryModal === 'function') {
+            closePopover();
+            openHistoryModal(sid, ident);
+          }
+        });
+      });
+
       // Position near the cell (viewport 기준)
       var cellRect = this.getBoundingClientRect();
       var popRect = popover.getBoundingClientRect();
       var left = cellRect.left;
       var top = cellRect.bottom + 4;
 
-      // 화면 아래로 넘치면 셀 위에 표시
       if (top + popRect.height > window.innerHeight) {
         top = cellRect.top - popRect.height - 4;
       }
-      // 화면 오른쪽으로 넘치면 왼쪽으로 밀기
       if (left + popRect.width > window.innerWidth) {
         left = window.innerWidth - popRect.width - 8;
       }
@@ -404,3 +431,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
+<%= render 'attendance/history_modal' %>

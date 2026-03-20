@@ -28,4 +28,29 @@ class ZoomViewLog < ApplicationRecord
   def self.total_duration(content_tag_id, user_email)
     for_student(content_tag_id, user_email).sum(:duration)
   end
+
+  # join_time을 Time 객체로 변환 (KST)
+  def join_time_parsed
+    return nil unless join_time.present?
+
+    Time.parse(join_time).in_time_zone('Asia/Seoul')
+  rescue ArgumentError
+    nil
+  end
+
+  # leave_time을 Time 객체로 변환 (KST)
+  def leave_time_parsed
+    return nil unless leave_time.present?
+
+    Time.parse(leave_time).in_time_zone('Asia/Seoul')
+  rescue ArgumentError
+    nil
+  end
+
+  # 참여 시간 범위 문자열 (예: "11:30 AM - 12:00 PM")
+  def view_time_range_string
+    return '-' unless join_time_parsed && leave_time_parsed
+
+    "#{join_time_parsed.strftime('%I:%M %p')} - #{leave_time_parsed.strftime('%I:%M %p')}"
+  end
 end
